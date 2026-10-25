@@ -1,19 +1,20 @@
-import { Button } from "@/components/ui/button"
+import { Printer } from "lucide-react"
 
-export default function Page() {
+import { EmptyState } from "@/components/empty-state"
+import { PageHeader } from "@/components/page-header"
+
+export default function NewPrintJobPage() {
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
-        </div>
-        <div className="font-mono text-xs text-muted-foreground">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
-      </div>
+    <div className="flex flex-col gap-8">
+      <PageHeader
+        title="Nova impressão"
+        description="Envie um PDF, escolha a impressora e as opções de impressão."
+      />
+      <EmptyState
+        icon={Printer}
+        title="Nenhuma impressora disponível"
+        description="As impressoras aparecerão aqui quando estiverem configuradas."
+      />
     </div>
   )
 }

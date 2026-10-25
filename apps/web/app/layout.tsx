@@ -1,15 +1,29 @@
+import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 
 import "./globals.css"
+import { SiteHeader } from "@/components/site-header"
 import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" })
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  fallback: ["Inter", "system-ui", "sans-serif"],
+})
 
 const fontMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
 })
+
+export const metadata: Metadata = {
+  title: {
+    default: "PrintHub",
+    template: "%s · PrintHub",
+  },
+  description: "Central de impressão privada.",
+}
 
 export default function RootLayout({
   children,
@@ -18,7 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="pt-BR"
       suppressHydrationWarning
       className={cn(
         "antialiased",
@@ -28,7 +42,12 @@ export default function RootLayout({
       )}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider defaultTheme="light" enableSystem={false}>
+          <SiteHeader />
+          <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+            {children}
+          </main>
+        </ThemeProvider>
       </body>
     </html>
   )

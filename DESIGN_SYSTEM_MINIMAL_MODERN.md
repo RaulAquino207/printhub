@@ -63,6 +63,8 @@ Este documento é **uma especificação de equipe/projeto**, não um preset ofic
 | `ring` | `#A3A3A3` |
 | `destructive` | `#F87171` |
 
+**Cores de status no modo escuro** (adicionado no PrintHub, 2026-10-25): success `#4ADE80`, warning `#FBBF24`, info `#60A5FA`, error = `destructive` `#F87171`. Os tons claros do modo claro têm contraste insuficiente sobre `#0A0A0A`.
+
 O dark mode deve alterar **tokens**, não duplicar toda a UI com estilos independentes.
 
 ### 2.3 CSS de tema — integração com shadcn/ui
