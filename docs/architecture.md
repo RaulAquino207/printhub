@@ -86,9 +86,9 @@ Implemented in `apps/api/internal/printer/options.go`: copies, color mode, paper
 | GET | `/healthz` | Liveness — **Implemented** |
 | GET | `/api/v1/printers` | Printers with status and capabilities — **Implemented** (Simulated data) |
 | GET | `/api/v1/printers/{id}` | One printer — **Implemented** (Simulated data) |
-| POST | `/api/v1/jobs` | Multipart: `printerId`, `options` (JSON), `file` |
+| POST | `/api/v1/jobs` | Multipart: `printerId`, `options` (JSON), `file` (PDF) → `201` queued job — **Implemented** (no processing yet) |
 | GET | `/api/v1/jobs` | List jobs (filters: `printerId`, `status`) |
-| GET | `/api/v1/jobs/{id}` | Job details and status |
+| GET | `/api/v1/jobs/{id}` | Job details, status and history — **Implemented** |
 | POST | `/api/v1/jobs/{id}/cancel` | Cancel a job |
 
 Authentication endpoints are defined in the auth milestone. Job status is fetched by polling in the MVP.
@@ -102,6 +102,16 @@ Authentication endpoints are defined in the auth milestone. Job status is fetche
 ```json
 { "error": { "code": "printer_not_found", "message": "printer not found" } }
 ```
+
+Validation errors (`422`) also list every invalid field with a stable reason, e.g. `file`/`not_pdf`, `printerId`/`unavailable`, `colorMode`/`unsupported`:
+
+```json
+{ "error": { "code": "validation_failed", "message": "the request has invalid fields",
+  "fields": [{ "field": "colorMode", "reason": "unsupported" }] } }
+```
+
+- Times are RFC 3339 in UTC.
+- Uploaded documents are stored as `PRINTHUB_DATA_DIR/documents/<job id>.pdf` (mode `0600`), never under the client's filename; see [streams-and-uploads.md](learning/go/streams-and-uploads.md).
 
 Example printer:
 
