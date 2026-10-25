@@ -24,7 +24,7 @@ The web and the API are separate applications in one monorepo. They are develope
 |---|---|---|---|
 | Web | `apps/web` | Next.js App Router UI in pt-BR: new print job, print queue | Implemented: shell, API status, printer list |
 | API | `apps/api` | Go + Chi HTTP API: printers, capabilities, uploads, jobs, auth | Implemented: health, CORS, printers |
-| Database | SQLite file owned by the API | Printers, jobs, users, sessions | Planned |
+| Database | SQLite file owned by the API (`PRINTHUB_DATA_DIR/printhub.db`) | Jobs and their history; later users and sessions. Printers stay in configuration for now | Implemented: jobs |
 | Job worker | Inside the API process | Moves jobs through their lifecycle, talks to the provider | Planned |
 | Mock provider | `apps/api/internal/printing/mock` | Simulated printers, capabilities, success, failure, offline, cancellation | Implemented: status and capabilities (Simulated) |
 | CUPS provider | `apps/api` | Real printing over IPP | Planned |
@@ -48,7 +48,7 @@ The contract is versioned JSON under `/api/v1`. The web adapts the options it sh
 - **Printer** — `ID`, `Name`, `Model`, `Destination` (provider-specific queue or URI), `Status` (online / offline / unknown). Has many jobs.
 - **Capabilities** — color, paper sizes, duplex, max copies, page ranges, orientations. Reported by the provider, not hardcoded.
 - **Options** — what the user chose; validated against the printer's capabilities.
-- **Job** — `ID`, `PrinterID`, document metadata, options, status, provider job ID, failure reason, history of status transitions.
+- **Job** — `ID`, printer snapshot (ID, name, model, simulated), document metadata, options, status, provider job ID, failure reason, history of status transitions.
 
 ## Job lifecycle
 
@@ -73,7 +73,7 @@ queued, submitted, printing ──cancel──→ cancelled
 
 - Every status change goes through one method that validates first; a rejected change returns `*job.TransitionError` (matches `job.ErrInvalidTransition`) and leaves the job untouched.
 - Each job keeps a history of `(status, time)` entries; creation and last update times are derived from it.
-- Jobs will persist (milestone 6); on startup the worker reconciles every non-terminal job with the provider (milestone 8).
+- Jobs persist in SQLite with a snapshot of their printer, saved after every transition. On startup the API lists unfinished jobs; the worker (milestone 8) will reconcile them: `queued` → back to the queue, `processing` → `failed` (the provider may or may not have received it, and printing twice is worse), `submitted`/`printing` → ask the provider by provider job ID. Details: [sqlite-persistence.md](learning/go/sqlite-persistence.md).
 
 ## Print options
 

@@ -4,7 +4,7 @@ Small milestones, each reviewed and tested locally before it is committed. Workf
 
 Commit messages below are suggestions; the actual history is in `git log`.
 
-**Progress:** milestones 0–5 done (2026-10-25). Next: milestone 6.
+**Progress:** milestones 0–6 done (2026-10-25). Next: milestone 7.
 
 ## Phase 1 — Local development
 
