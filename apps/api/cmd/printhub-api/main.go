@@ -11,10 +11,12 @@ import (
 	"os/signal"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/RaulAquino207/printhub/apps/api/internal/document"
 	"github.com/RaulAquino207/printhub/apps/api/internal/httpapi"
 	"github.com/RaulAquino207/printhub/apps/api/internal/printer"
 	"github.com/RaulAquino207/printhub/apps/api/internal/printing/mock"
@@ -30,9 +32,11 @@ type config struct {
 	addr string
 	// corsOrigins are the browser origins allowed to call the API (ADR 0003).
 	corsOrigins []string
-	// dataDir holds the SQLite database. Keep it outside any web root and,
-	// in containers, on a persistent volume.
+	// dataDir holds the SQLite database and the uploaded documents. Keep it
+	// outside any web root and, in containers, on a persistent volume.
 	dataDir string
+	// maxUploadBytes is the largest PDF accepted.
+	maxUploadBytes int64
 }
 
 func loadConfig() (config, error) {
@@ -41,10 +45,16 @@ func loadConfig() (config, error) {
 		return config{}, errors.New("PRINTHUB_CORS_ALLOWED_ORIGINS must list explicit origins, not *")
 	}
 
+	maxUploadMB, err := strconv.Atoi(envOr("PRINTHUB_MAX_UPLOAD_MB", "50"))
+	if err != nil || maxUploadMB < 1 {
+		return config{}, fmt.Errorf("PRINTHUB_MAX_UPLOAD_MB must be a positive integer, got %q", os.Getenv("PRINTHUB_MAX_UPLOAD_MB"))
+	}
+
 	return config{
-		addr:        envOr("PRINTHUB_API_ADDR", "localhost:8080"),
-		corsOrigins: origins,
-		dataDir:     envOr("PRINTHUB_DATA_DIR", "data"),
+		addr:           envOr("PRINTHUB_API_ADDR", "localhost:8080"),
+		corsOrigins:    origins,
+		dataDir:        envOr("PRINTHUB_DATA_DIR", "data"),
+		maxUploadBytes: int64(maxUploadMB) << 20,
 	}, nil
 }
 
@@ -107,6 +117,11 @@ func run(logger *slog.Logger) error {
 		logger.Warn("unfinished jobs found; they will be reconciled once the worker exists", "count", len(unfinished))
 	}
 
+	documents, err := document.NewStorage(filepath.Join(cfg.dataDir, "documents"), cfg.maxUploadBytes)
+	if err != nil {
+		return err
+	}
+
 	// Only simulated printers exist until the CUPS provider is implemented.
 	printerConfigs, provider := mock.Demo()
 	printers := printer.NewRegistry(printerConfigs, provider)
@@ -117,6 +132,8 @@ func run(logger *slog.Logger) error {
 			Logger:      logger,
 			CORSOrigins: cfg.corsOrigins,
 			Printers:    printers,
+			Jobs:        db,
+			Documents:   documents,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,

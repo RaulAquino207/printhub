@@ -15,6 +15,13 @@ type errorResponse struct {
 type errorBody struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+	// Fields lists invalid input fields, for validation errors.
+	Fields []fieldError `json:"fields,omitempty"`
+}
+
+type fieldError struct {
+	Field  string `json:"field"`
+	Reason string `json:"reason"`
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -26,4 +33,12 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, code, message string) {
 	writeJSON(w, status, errorResponse{Error: errorBody{Code: code, Message: message}})
+}
+
+func writeValidationError(w http.ResponseWriter, fields []fieldError) {
+	writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: errorBody{
+		Code:    "validation_failed",
+		Message: "the request has invalid fields",
+		Fields:  fields,
+	}})
 }

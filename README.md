@@ -47,6 +47,7 @@ moon run :test :vet :typecheck :lint :format :build   # every check of every pro
 |---|---|---|
 | `PRINTHUB_API_ADDR` | `localhost:8080` | Address the API listens on |
 | `PRINTHUB_DATA_DIR` | `data` (relative to `apps/api` when run by moon) | Directory of the SQLite database `printhub.db`; created with `0700` |
+| `PRINTHUB_MAX_UPLOAD_MB` | `50` | Largest PDF accepted, in MiB |
 | `NEXT_PUBLIC_API_URL` (web) | `http://localhost:8080` | API base URL used by the browser; inlined at build time |
 | `PRINTHUB_CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed to call the API with credentials; `*` is rejected ([ADR 0003](docs/adr/0003-subdomain-routing-and-cors.md)) |
 

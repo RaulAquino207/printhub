@@ -39,3 +39,18 @@ func TestLoadConfigCORSOrigins(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadConfigMaxUpload(t *testing.T) {
+	t.Setenv("PRINTHUB_MAX_UPLOAD_MB", "")
+	cfg, err := loadConfig()
+	if err != nil || cfg.maxUploadBytes != 50<<20 {
+		t.Errorf("default = %d, %v; want 50 MiB", cfg.maxUploadBytes, err)
+	}
+
+	for _, bad := range []string{"0", "-1", "lots"} {
+		t.Setenv("PRINTHUB_MAX_UPLOAD_MB", bad)
+		if _, err := loadConfig(); err == nil {
+			t.Errorf("PRINTHUB_MAX_UPLOAD_MB=%q: want an error", bad)
+		}
+	}
+}

@@ -17,18 +17,27 @@ type Dependencies struct {
 	// cross-origin (e.g. the web app).
 	CORSOrigins []string
 	Printers    PrinterDirectory
+	Jobs        JobStore
+	Documents   DocumentStore
 }
 
 // server holds the dependencies shared by handlers. Handlers that need them
 // are methods on *server.
 type server struct {
-	logger   *slog.Logger
-	printers PrinterDirectory
+	logger    *slog.Logger
+	printers  PrinterDirectory
+	jobs      JobStore
+	documents DocumentStore
 }
 
 // NewRouter returns the root HTTP handler of the API.
 func NewRouter(deps Dependencies) http.Handler {
-	s := &server{logger: deps.Logger, printers: deps.Printers}
+	s := &server{
+		logger:    deps.Logger,
+		printers:  deps.Printers,
+		jobs:      deps.Jobs,
+		documents: deps.Documents,
+	}
 
 	r := chi.NewRouter()
 
@@ -42,6 +51,8 @@ func NewRouter(deps Dependencies) http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/printers", s.listPrinters)
 		r.Get("/printers/{id}", s.getPrinter)
+		r.Post("/jobs", s.createJob)
+		r.Get("/jobs/{id}", s.getJob)
 	})
 
 	return r
