@@ -6,6 +6,8 @@ import "github.com/RaulAquino207/printhub/apps/api/internal/printer"
 // monochrome laser, a color laser and an offline printer, so the UI can show
 // different capabilities and states. They are generic on purpose and do not
 // describe any real device.
+//
+// The IDs are stable: stored jobs reference them across restarts.
 func Demo() ([]printer.Config, *Provider) {
 	bothOrientations := []printer.Orientation{printer.OrientationPortrait, printer.OrientationLandscape}
 

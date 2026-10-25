@@ -3,6 +3,7 @@ package mock
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/RaulAquino207/printhub/apps/api/internal/printer"
@@ -48,5 +49,22 @@ func TestDemoConfigsMatchProvider(t *testing.T) {
 		if _, err := provider.Status(context.Background(), cfg.Destination); err != nil {
 			t.Errorf("%s: destination %q not simulated: %v", cfg.ID, cfg.Destination, err)
 		}
+	}
+}
+
+// Stored jobs reference printers by ID, so these IDs must survive restarts and
+// refactors. Changing one orphans the jobs that point to it: treat any change
+// here as a data migration, not a rename.
+func TestDemoIDsAreStable(t *testing.T) {
+	configs, _ := Demo()
+
+	var ids []printer.ID
+	for _, cfg := range configs {
+		ids = append(ids, cfg.ID)
+	}
+
+	want := []printer.ID{"mono-laser", "color-laser", "inkjet"}
+	if !slices.Equal(ids, want) {
+		t.Errorf("demo printer IDs = %v, want %v", ids, want)
 	}
 }
