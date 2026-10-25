@@ -1,9 +1,10 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { FileText, FileUp, X } from "lucide-react"
+import { FileImage, FileText, FileUp, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { ACCEPTED_TYPES, documentKind } from "@/lib/documents"
 import { MAX_UPLOAD_BYTES } from "@/lib/jobs"
 import { formatBytes } from "@/lib/messages"
 import { cn } from "@/lib/utils"
@@ -39,7 +40,7 @@ export function DocumentPicker({
       <input
         ref={inputRef}
         type="file"
-        accept="application/pdf,.pdf"
+        accept={ACCEPTED_TYPES}
         className="sr-only"
         tabIndex={-1}
         aria-hidden
@@ -49,10 +50,17 @@ export function DocumentPicker({
 
       {file ? (
         <div className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3">
-          <FileText
-            aria-hidden
-            className="size-5 shrink-0 text-muted-foreground"
-          />
+          {documentKind(file) === "image" ? (
+            <FileImage
+              aria-hidden
+              className="size-5 shrink-0 text-muted-foreground"
+            />
+          ) : (
+            <FileText
+              aria-hidden
+              className="size-5 shrink-0 text-muted-foreground"
+            />
+          )}
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate font-medium">{file.name}</span>
             <span className="text-sm text-muted-foreground">
@@ -99,9 +107,9 @@ export function DocumentPicker({
         >
           <FileUp aria-hidden className="size-6 text-muted-foreground" />
           <div className="flex flex-col gap-1">
-            <p className="font-medium">Arraste um PDF para cá</p>
+            <p className="font-medium">Arraste um documento para cá</p>
             <p className="text-sm text-muted-foreground">
-              ou selecione um arquivo · PDF de até{" "}
+              ou selecione um arquivo · PDF, JPG ou PNG de até{" "}
               {formatBytes(MAX_UPLOAD_BYTES)}
             </p>
           </div>

@@ -63,12 +63,15 @@ export function defaultOptions(c: PrinterCapabilities): PrintOptions {
  */
 export function PrintOptionsForm({
   capabilities: c,
+  allowPageRanges = true,
   value,
   onChange,
   errors,
   disabled,
 }: {
   capabilities: PrinterCapabilities
+  /** False for images, which always print as a single page. */
+  allowPageRanges?: boolean
   value: PrintOptions
   onChange: (value: PrintOptions) => void
   errors: Record<string, string>
@@ -198,7 +201,7 @@ export function PrintOptionsForm({
         </Field>
       )}
 
-      {c.pageRanges && (
+      {c.pageRanges && allowPageRanges && (
         <Field data-invalid={Boolean(errors.pageRanges)}>
           <FieldLabel htmlFor="page-ranges">Páginas</FieldLabel>
           <Input

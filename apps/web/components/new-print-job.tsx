@@ -4,6 +4,7 @@ import { useState } from "react"
 import { CircleAlert } from "lucide-react"
 
 import { DocumentPicker } from "@/components/document-picker"
+import { DocumentPreview } from "@/components/document-preview"
 import { JobStatusPanel } from "@/components/job-status"
 import {
   defaultOptions,
@@ -21,7 +22,10 @@ import {
   type Job,
   type PrintOptions,
 } from "@/lib/jobs"
+import { documentKind } from "@/lib/documents"
+import { imageToPdf } from "@/lib/image-to-pdf"
 import { fieldMessage, formatBytes } from "@/lib/messages"
+import { exceedsPageCount, parsePageRanges } from "@/lib/page-ranges"
 
 type Errors = Record<string, string>
 
@@ -32,22 +36,18 @@ function without(errors: Errors, field: string): Errors {
   return rest
 }
 
-const PAGE_RANGES = /^\s*\d+(\s*-\s*\d+)?(\s*,\s*\d+(\s*-\s*\d+)?)*\s*$/
-
 function validate(
   file: File | null,
   printerId: string | undefined,
   options: PrintOptions | null,
-  maxCopies: number
+  maxCopies: number,
+  pageCount: number | null
 ): Errors {
   const errors: Errors = {}
   if (!file) {
     errors.file = fieldMessage("file", "required")
-  } else if (
-    file.type !== "application/pdf" &&
-    !file.name.toLowerCase().endsWith(".pdf")
-  ) {
-    errors.file = "Selecione um arquivo PDF."
+  } else if (!documentKind(file)) {
+    errors.file = "Selecione um PDF, JPG ou PNG."
   } else if (file.size > MAX_UPLOAD_BYTES) {
     errors.file = `O arquivo tem ${formatBytes(file.size)}; o limite é ${formatBytes(MAX_UPLOAD_BYTES)}.`
   }
@@ -56,8 +56,16 @@ function validate(
     if (!(options.copies >= 1 && options.copies <= maxCopies)) {
       errors.copies = `Escolha entre 1 e ${maxCopies} cópias.`
     }
-    if (options.pageRanges && !PAGE_RANGES.test(options.pageRanges)) {
+    if (options.pageRanges && !parsePageRanges(options.pageRanges)) {
       errors.pageRanges = fieldMessage("pageRanges", "invalid_format")
+    } else if (
+      pageCount !== null &&
+      exceedsPageCount(options.pageRanges, pageCount)
+    ) {
+      errors.pageRanges =
+        pageCount === 1
+          ? "O documento tem 1 página."
+          : `O documento tem ${pageCount} páginas.`
     }
   }
   return errors
@@ -78,6 +86,11 @@ export function NewPrintJob() {
   const [formError, setFormError] = useState<string>()
   const [progress, setProgress] = useState<number | null>(null)
   const [job, setJob] = useState<Job | null>(null)
+  // Known once the preview has read the document.
+  const [pageCount, setPageCount] = useState<number | null>(null)
+  const [converting, setConverting] = useState(false)
+  // Changes with every selected file, so the preview starts over.
+  const [fileKey, setFileKey] = useState(0)
 
   const available =
     printers.status === "success"
@@ -88,7 +101,8 @@ export function NewPrintJob() {
   const printer = available.find((p) => p.id === printerId)
   const effectiveOptions =
     options ?? (printer ? defaultOptions(printer.capabilities) : null)
-  const submitting = progress !== null
+  const kind = file ? documentKind(file) : null
+  const submitting = progress !== null || converting
 
   function choosePrinter(id: string) {
     setChosenPrinterId(id)
@@ -112,7 +126,8 @@ export function NewPrintJob() {
       file,
       printer?.id,
       effectiveOptions,
-      printer?.capabilities.maxCopies ?? 1
+      printer?.capabilities.maxCopies ?? 1,
+      pageCount
     )
     setErrors(found)
     if (
@@ -124,11 +139,21 @@ export function NewPrintJob() {
       return
     }
 
-    setProgress(0)
     try {
+      let upload = file
+      let options = effectiveOptions
+      if (kind === "image") {
+        // Images become a one-page PDF on the chosen paper; the API and CUPS
+        // only ever receive PDFs.
+        setConverting(true)
+        upload = await imageToPdf(file, options.paperSize, options.orientation)
+        options = { ...options, pageRanges: "" }
+        setConverting(false)
+      }
+      setProgress(0)
       setJob(
         await createJob(
-          { printerId: printer.id, options: effectiveOptions, file },
+          { printerId: printer.id, options, file: upload },
           setProgress
         )
       )
@@ -149,6 +174,7 @@ export function NewPrintJob() {
         )
       }
     } finally {
+      setConverting(false)
       setProgress(null)
     }
   }
@@ -174,11 +200,25 @@ export function NewPrintJob() {
           file={file}
           onChange={(f) => {
             setFile(f)
-            setErrors((e) => without(e, "file"))
+            setFileKey((k) => k + 1)
+            setPageCount(null)
+            setErrors((e) => without(without(e, "file"), "pageRanges"))
           }}
           error={errors.file}
           disabled={submitting}
         />
+        {file && kind && effectiveOptions && (
+          <DocumentPreview
+            key={fileKey}
+            file={file}
+            kind={kind}
+            paperSize={effectiveOptions.paperSize}
+            orientation={effectiveOptions.orientation}
+            colorMode={effectiveOptions.colorMode}
+            pageRanges={effectiveOptions.pageRanges}
+            onPageCount={setPageCount}
+          />
+        )}
       </section>
 
       <div className="flex flex-col gap-8 lg:rounded-xl lg:border lg:bg-card lg:p-6">
@@ -199,6 +239,7 @@ export function NewPrintJob() {
             </h2>
             <PrintOptionsForm
               capabilities={printer.capabilities}
+              allowPageRanges={kind !== "image"}
               value={effectiveOptions}
               onChange={setOptions}
               errors={errors}
@@ -214,7 +255,7 @@ export function NewPrintJob() {
           </Alert>
         )}
 
-        {submitting && (
+        {progress !== null && (
           <Progress value={Math.round(progress * 100)}>
             <ProgressLabel>Enviando documento…</ProgressLabel>
           </Progress>
@@ -226,7 +267,11 @@ export function NewPrintJob() {
           className="h-11 w-full"
           disabled={submitting || printers.status !== "success"}
         >
-          {submitting ? "Enviando…" : "Imprimir"}
+          {converting
+            ? "Preparando imagem…"
+            : submitting
+              ? "Enviando…"
+              : "Imprimir"}
         </Button>
       </div>
     </form>
