@@ -31,7 +31,7 @@ Do not reconsider these without a concrete technical reason.
 | Deployment | Two independent images and services (web, api) — later | ADR 0002 |
 | Routing | `printhub.homelab` (web) and `api.printhub.homelab` (api); cross-origin with explicit CORS | ADR 0003 |
 | Auth | Session cookies, users stored in SQLite | ADR 0003 |
-| Git | Local only. No remote, no pushes until I approve | — |
+| Git | Remote `git@github.com:RaulAquino207/printhub.git` (SSH). Push only when I ask | — |
 
 Do not introduce Kubernetes, message brokers, distributed queues or microservices without a justified need.
 
