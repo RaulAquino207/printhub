@@ -22,11 +22,11 @@ The web and the API are separate applications in one monorepo. They are develope
 
 | Component | Location | Responsibility | Status |
 |---|---|---|---|
-| Web | `apps/web` | Next.js App Router UI in pt-BR: new print job, print queue | Planned |
-| API | `apps/api` | Go + Chi HTTP API: printers, capabilities, uploads, jobs, auth | Planned |
+| Web | `apps/web` | Next.js App Router UI in pt-BR: new print job, print queue | Implemented: shell, API status, printer list |
+| API | `apps/api` | Go + Chi HTTP API: printers, capabilities, uploads, jobs, auth | Implemented: health, CORS, printers |
 | Database | SQLite file owned by the API | Printers, jobs, users, sessions | Planned |
 | Job worker | Inside the API process | Moves jobs through their lifecycle, talks to the provider | Planned |
-| Mock provider | `apps/api` | Simulated printers, capabilities, success, failure, offline, cancellation | Planned (Simulated) |
+| Mock provider | `apps/api/internal/printing/mock` | Simulated printers, capabilities, success, failure, offline, cancellation | Implemented: status and capabilities (Simulated) |
 | CUPS provider | `apps/api` | Real printing over IPP | Planned |
 | Print bridge | Raspberry Pi Zero WH | CUPS + drivers next to the printers | Not yet verified — see [hardware.md](hardware.md) |
 | Power controller | Separate component | Smart plugs via Home Assistant | Future, disabled |
@@ -71,15 +71,45 @@ The exact transitions are finalized and tested in the job lifecycle milestone.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/healthz` | Liveness |
-| GET | `/api/v1/printers` | Printers with status |
-| GET | `/api/v1/printers/{id}` | Printer details and capabilities |
+| GET | `/healthz` | Liveness — **Implemented** |
+| GET | `/api/v1/printers` | Printers with status and capabilities — **Implemented** (Simulated data) |
+| GET | `/api/v1/printers/{id}` | One printer — **Implemented** (Simulated data) |
 | POST | `/api/v1/jobs` | Multipart: `printerId`, `options` (JSON), `file` |
 | GET | `/api/v1/jobs` | List jobs (filters: `printerId`, `status`) |
 | GET | `/api/v1/jobs/{id}` | Job details and status |
 | POST | `/api/v1/jobs/{id}/cancel` | Cancel a job |
 
 Authentication endpoints are defined in the auth milestone. Job status is fetched by polling in the MVP.
+
+### Conventions
+
+- JSON field names are camelCase; empty lists are encoded as `[]`, never `null`.
+- Printers carry `"simulated": true` when served by the mock provider; the web shows a "Simulada" badge.
+- Every error has the same shape; `code` is stable and mapped to pt-BR messages by the web:
+
+```json
+{ "error": { "code": "printer_not_found", "message": "printer not found" } }
+```
+
+Example printer:
+
+```json
+{
+  "id": "mono-laser",
+  "name": "Laser P&B",
+  "model": "Simulated monochrome laser",
+  "status": "online",
+  "simulated": true,
+  "capabilities": {
+    "colorModes": ["monochrome"],
+    "paperSizes": ["A4", "Letter"],
+    "orientations": ["portrait", "landscape"],
+    "duplex": false,
+    "pageRanges": true,
+    "maxCopies": 99
+  }
+}
+```
 
 ## Environments
 
