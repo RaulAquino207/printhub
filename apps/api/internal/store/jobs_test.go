@@ -151,8 +151,8 @@ func TestGetJobNotFound(t *testing.T) {
 	s := openTestStore(t, filepath.Join(t.TempDir(), "printhub.db"))
 	defer s.Close()
 
-	if _, err := s.GetJob(context.Background(), "missing"); !errors.Is(err, ErrJobNotFound) {
-		t.Errorf("err = %v, want ErrJobNotFound", err)
+	if _, err := s.GetJob(context.Background(), "missing"); !errors.Is(err, job.ErrNotFound) {
+		t.Errorf("err = %v, want job.ErrNotFound", err)
 	}
 }
 

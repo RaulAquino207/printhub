@@ -10,9 +10,6 @@ import (
 	"github.com/RaulAquino207/printhub/apps/api/internal/job"
 )
 
-// ErrJobNotFound is returned when no job has the given ID.
-var ErrJobNotFound = errors.New("job not found")
-
 // SaveJob inserts a job or updates the fields that change over its lifecycle
 // (status, provider job ID, failure reason, update time) and appends the
 // transitions not yet stored. The printer snapshot, document and options are
@@ -88,12 +85,12 @@ func scanJob(row scanner) (*job.Job, error) {
 	return &j, nil
 }
 
-// GetJob returns the job with the given ID, or ErrJobNotFound.
+// GetJob returns the job with the given ID, or job.ErrNotFound.
 func (s *Store) GetJob(ctx context.Context, id job.ID) (*job.Job, error) {
 	row := s.db.QueryRowContext(ctx, `SELECT `+jobColumns+` FROM jobs WHERE id = ?`, id)
 	j, err := scanJob(row)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrJobNotFound
+		return nil, job.ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get job %s: %w", id, err)

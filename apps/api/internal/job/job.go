@@ -63,6 +63,9 @@ func (s Status) Terminal() bool {
 	return !ok
 }
 
+// ErrNotFound is returned when no job has the given ID.
+var ErrNotFound = errors.New("job not found")
+
 // ErrInvalidTransition is matched by every *TransitionError, so callers can
 // write errors.Is(err, job.ErrInvalidTransition).
 var ErrInvalidTransition = errors.New("invalid job status transition")
