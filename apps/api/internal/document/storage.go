@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 var (
@@ -111,6 +112,38 @@ func (s *Storage) Save(id string, r io.Reader) (size int64, err error) {
 		return 0, fmt.Errorf("store document: %w", err)
 	}
 	return size, nil
+}
+
+// Open returns the stored document for reading. The caller must close it.
+func (s *Storage) Open(id string) (io.ReadCloser, error) {
+	path, err := s.Path(id)
+	if err != nil {
+		return nil, err
+	}
+	// Not "return os.Open(path)": on error that would wrap a nil *os.File in
+	// a non-nil io.ReadCloser (the typed-nil pitfall).
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+// IDs lists the stored documents. Temporary files of uploads in progress are
+// not included.
+func (s *Storage) IDs() ([]string, error) {
+	entries, err := os.ReadDir(s.dir)
+	if err != nil {
+		return nil, fmt.Errorf("list documents: %w", err)
+	}
+	var ids []string
+	for _, e := range entries {
+		id, ok := strings.CutSuffix(e.Name(), ".pdf")
+		if ok && e.Type().IsRegular() && validID.MatchString(id) {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
 }
 
 // Remove deletes the document with the given ID. Removing a missing document

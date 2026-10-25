@@ -3,8 +3,10 @@ package document
 import (
 	"bytes"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -120,5 +122,40 @@ func TestRemove(t *testing.T) {
 	}
 	if err := s.Remove("job1"); err != nil {
 		t.Errorf("Remove of a missing document = %v, want nil", err)
+	}
+}
+
+func TestOpenAndIDs(t *testing.T) {
+	s, dir := newTestStorage(t, 1024)
+	for _, id := range []string{"b", "a"} {
+		if _, err := s.Save(id, strings.NewReader("%PDF-"+id)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// An upload in progress must not be listed.
+	if err := os.WriteFile(filepath.Join(dir, "upload-123.tmp"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	ids, err := s.IDs()
+	if err != nil || !slices.Equal(ids, []string{"a", "b"}) {
+		t.Errorf("IDs() = %v, %v; want [a b]", ids, err)
+	}
+
+	f, err := s.Open("a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if got, _ := io.ReadAll(f); string(got) != "%PDF-a" {
+		t.Errorf("content = %q", got)
+	}
+
+	rc, err := s.Open("missing")
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("Open(missing) err = %v, want os.ErrNotExist", err)
+	}
+	if rc != nil {
+		t.Errorf("Open(missing) returned a non-nil reader (typed nil): %#v", rc)
 	}
 }
