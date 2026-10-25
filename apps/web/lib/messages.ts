@@ -67,3 +67,16 @@ const timeFormat = new Intl.DateTimeFormat("pt-BR", { timeStyle: "medium" })
 export function formatTime(iso: string) {
   return timeFormat.format(new Date(iso))
 }
+
+const dateTimeFormat = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
+})
+
+/** Time only for today, date and time otherwise. */
+export function formatWhen(iso: string, now = new Date()) {
+  const date = new Date(iso)
+  return date.toDateString() === now.toDateString()
+    ? formatTime(iso)
+    : dateTimeFormat.format(date)
+}

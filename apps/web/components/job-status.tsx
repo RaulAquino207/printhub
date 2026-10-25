@@ -2,14 +2,8 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import {
-  CircleAlert,
-  CircleCheck,
-  CircleSlash,
-  LoaderCircle,
-  type LucideIcon,
-} from "lucide-react"
 
+import { JobStatusLabel } from "@/components/job-status-label"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,19 +21,8 @@ import {
   formatTime,
   jobStatusLabels,
 } from "@/lib/messages"
-import { cn } from "@/lib/utils"
 
 const POLL_INTERVAL_MS = 1000
-
-const statusIcon: Record<JobStatus, { icon: LucideIcon; className: string }> = {
-  queued: { icon: LoaderCircle, className: "text-muted-foreground" },
-  processing: { icon: LoaderCircle, className: "text-muted-foreground" },
-  submitted: { icon: LoaderCircle, className: "text-info" },
-  printing: { icon: LoaderCircle, className: "text-info" },
-  completed: { icon: CircleCheck, className: "text-success" },
-  failed: { icon: CircleAlert, className: "text-destructive" },
-  cancelled: { icon: CircleSlash, className: "text-muted-foreground" },
-}
 
 /** Follows a job until it finishes, polling the API every second. */
 export function JobStatusPanel({
@@ -87,8 +70,6 @@ export function JobStatusPanel({
     }
   }
 
-  const { icon: Icon, className: tone } = statusIcon[job.status]
-
   return (
     <section
       aria-labelledby="job-status-heading"
@@ -105,13 +86,7 @@ export function JobStatusPanel({
       </div>
 
       <div aria-live="polite" className="flex flex-col gap-2">
-        <p className={cn("flex items-center gap-2 text-lg font-medium", tone)}>
-          <Icon
-            aria-hidden
-            className={cn("size-5", !finished && "motion-safe:animate-spin")}
-          />
-          {jobStatusLabels[job.status]}
-        </p>
+        <JobStatusLabel status={job.status} size="lg" />
         <StatusDescription job={job} />
       </div>
 

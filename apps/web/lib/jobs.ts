@@ -105,6 +105,20 @@ export function createJob(
   })
 }
 
+/** Lists jobs, newest first, optionally filtered by status. */
+export async function fetchJobs(
+  options: { statuses?: JobStatus[]; limit?: number } = {},
+  signal?: AbortSignal
+) {
+  const params = new URLSearchParams()
+  if (options.statuses?.length) params.set("status", options.statuses.join(","))
+  if (options.limit) params.set("limit", String(options.limit))
+  const res = await apiFetch(`/api/v1/jobs?${params}`, { signal })
+  if (!res.ok) throw await toApiError(res)
+  const body: { jobs: Job[] } = await res.json()
+  return body.jobs
+}
+
 export async function fetchJob(id: string, signal?: AbortSignal) {
   const res = await apiFetch(`/api/v1/jobs/${encodeURIComponent(id)}`, {
     signal,

@@ -1,8 +1,7 @@
 import type { Metadata } from "next"
-import { ListChecks } from "lucide-react"
 
-import { EmptyState } from "@/components/empty-state"
 import { PageHeader } from "@/components/page-header"
+import { PrintQueue } from "@/components/print-queue"
 
 export const metadata: Metadata = {
   title: "Fila de impressão",
@@ -15,11 +14,7 @@ export default function PrintQueuePage() {
         title="Fila de impressão"
         description="Acompanhe os trabalhos enviados às impressoras."
       />
-      <EmptyState
-        icon={ListChecks}
-        title="Nenhum trabalho na fila"
-        description="Os trabalhos enviados aparecerão aqui."
-      />
+      <PrintQueue />
     </div>
   )
 }
