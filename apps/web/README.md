@@ -2,7 +2,7 @@
 
 Next.js (App Router) frontend for PrintHub, built with TypeScript, Tailwind CSS, shadcn/ui (Base UI primitives, Vega style, preset `b1Z5aAiW0`) and Lucide icons.
 
-Follow [`DESIGN_SYSTEM_MINIMAL_MODERN.md`](../../DESIGN_SYSTEM_MINIMAL_MODERN.md) for all UI work.
+Follow the Minimal / Modern design system summarized in the [frontend section of AGENTS.md](../../AGENTS.md#frontend) for all UI work.
 
 ```bash
 moon run web:dev                    # http://localhost:3000

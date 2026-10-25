@@ -128,7 +128,7 @@
     }
 }
 /*
- * PrintHub design tokens — DESIGN_SYSTEM_MINIMAL_MODERN.md §2.
+ * PrintHub design tokens — Minimal / Modern design system (see AGENTS.md).
  * Overrides only the semantic values that differ from the shadcn Neutral
  * theme above; keep the generated blocks untouched so upgrades stay diffable.
  */

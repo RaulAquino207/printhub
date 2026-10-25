@@ -5,6 +5,9 @@
 !.vscode/extensions.json
 *.swp
 
+# Local design system document (kept out of the repository)
+/DESIGN_SYSTEM_MINIMAL_MODERN.md
+
 # Environment and secrets
 .env
 .env.*
