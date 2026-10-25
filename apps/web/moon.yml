@@ -1,0 +1,56 @@
+# https://moonrepo.dev/docs/config/project
+$schema: "../../.moon/cache/schemas/project.json"
+
+language: "typescript"
+layer: "application"
+
+fileGroups:
+  sources:
+    - "app/**/*"
+    - "components/**/*"
+    - "hooks/**/*"
+    - "lib/**/*"
+    - "public/**/*"
+  configs:
+    - "package.json"
+    - "pnpm-lock.yaml"
+    - "tsconfig.json"
+    - "next.config.ts"
+    - "postcss.config.mjs"
+    - "eslint.config.mjs"
+    - "components.json"
+    - ".prettierrc"
+
+tasks:
+  # Next.js dev server with Fast Refresh on http://localhost:3000; never cached.
+  dev:
+    command: "next dev"
+    preset: "server"
+
+  build:
+    command: "next build"
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+    outputs:
+      - ".next"
+      - "!.next/cache"
+
+  typecheck:
+    command: "tsc --noEmit"
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+
+  lint:
+    command: "eslint"
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+
+  format:
+    command: 'prettier --check "**/*.{ts,tsx}"'
+    inputs:
+      - "@group(sources)"
+      - ".prettierrc"
+      - ".prettierignore"
