@@ -7,7 +7,7 @@ Hardware facts and assumptions, kept separate from the software. Every claim car
 - **Not yet verified** — unknown until we check it ourselves.
 - **Physically tested and working** — we printed a real page.
 
-As of 2026-10-25 nothing is physically tested. PrintHub currently runs only with simulated printers.
+As of 2026-10-25 nothing is physically tested. PrintHub's CUPS/IPP integration works against a development CUPS server whose queues print to `/dev/null` ([ipp-and-cups.md](learning/infra/ipp-and-cups.md)); no real printer has been used yet.
 
 ## Target topology
 

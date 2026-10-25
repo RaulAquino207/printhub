@@ -4,7 +4,7 @@ Small milestones, each reviewed and tested locally before it is committed. Workf
 
 Commit messages below are suggestions; the actual history is in `git log`.
 
-**Progress:** milestones 0–11 done (2026-10-25). Next: milestone 12.
+**Progress:** milestones 0–12 done (2026-10-25). Next: milestone 13 (needs the Raspberry Pi).
 
 ## Phase 1 — Local development
 

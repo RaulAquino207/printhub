@@ -28,7 +28,7 @@ The web and the API are separate applications in one monorepo. They are develope
 | Authentication | `apps/api/internal/auth` + `/api/v1/auth/*` | Users (created with `printhub-api user add`), bcrypt passwords, 30-day sessions in an HttpOnly cookie, CSRF checks | Implemented |
 | Job worker | `apps/api/internal/worker`, one goroutine in the API process | Moves jobs through their lifecycle, talks to the provider, recovers interrupted jobs, removes finished documents | Implemented |
 | Mock provider | `apps/api/internal/printing/mock` | Simulated printers, capabilities, success, failure, offline, cancellation | Implemented (Simulated): jobs take 2 s queued + 5 s printing; "Laser com defeito" always fails |
-| CUPS provider | `apps/api` | Real printing over IPP | Planned |
+| CUPS provider | `apps/api/internal/printing/cups` | IPP to a CUPS server: discovery, capabilities, Print-Job, job status, cancel | Implemented; tested against the development CUPS container (virtual queues), not against printers |
 | Print bridge | Raspberry Pi Zero WH | CUPS + drivers next to the printers | Not yet verified — see [hardware.md](hardware.md) |
 | Power controller | Separate component | Smart plugs via Home Assistant | Future, disabled |
 
