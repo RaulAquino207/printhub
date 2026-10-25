@@ -25,8 +25,8 @@ The web and the API are separate applications in one monorepo. They are develope
 | Web | `apps/web` | Next.js App Router UI in pt-BR: new print job, print queue | Implemented: shell, API status, printer list |
 | API | `apps/api` | Go + Chi HTTP API: printers, capabilities, uploads, jobs, auth | Implemented: health, CORS, printers |
 | Database | SQLite file owned by the API (`PRINTHUB_DATA_DIR/printhub.db`) | Jobs and their history; later users and sessions. Printers stay in configuration for now | Implemented: jobs |
-| Job worker | Inside the API process | Moves jobs through their lifecycle, talks to the provider | Planned |
-| Mock provider | `apps/api/internal/printing/mock` | Simulated printers, capabilities, success, failure, offline, cancellation | Implemented: status and capabilities (Simulated) |
+| Job worker | `apps/api/internal/worker`, one goroutine in the API process | Moves jobs through their lifecycle, talks to the provider, recovers interrupted jobs, removes finished documents | Implemented |
+| Mock provider | `apps/api/internal/printing/mock` | Simulated printers, capabilities, success, failure, offline, cancellation | Implemented (Simulated): jobs take 2 s queued + 5 s printing; "Laser com defeito" always fails |
 | CUPS provider | `apps/api` | Real printing over IPP | Planned |
 | Print bridge | Raspberry Pi Zero WH | CUPS + drivers next to the printers | Not yet verified — see [hardware.md](hardware.md) |
 | Power controller | Separate component | Smart plugs via Home Assistant | Future, disabled |
@@ -73,7 +73,9 @@ queued, submitted, printing ──cancel──→ cancelled
 
 - Every status change goes through one method that validates first; a rejected change returns `*job.TransitionError` (matches `job.ErrInvalidTransition`) and leaves the job untouched.
 - Each job keeps a history of `(status, time)` entries; creation and last update times are derived from it.
-- Jobs persist in SQLite with a snapshot of their printer, saved after every transition. On startup the API lists unfinished jobs; the worker (milestone 8) will reconcile them: `queued` → back to the queue, `processing` → `failed` (the provider may or may not have received it, and printing twice is worse), `submitted`/`printing` → ask the provider by provider job ID. Details: [sqlite-persistence.md](learning/go/sqlite-persistence.md).
+- Jobs persist in SQLite with a snapshot of their printer, saved after every transition. The worker's first pass after a restart recovers unfinished jobs: `queued` continues, `processing` → `failed: interrupted` (the provider may or may not have received it, and printing twice is worse), `submitted`/`printing` → ask the provider by provider job ID (`failed: provider_lost_job` if it no longer knows the job). Details: [sqlite-persistence.md](learning/go/sqlite-persistence.md), [goroutines-and-the-worker.md](learning/go/goroutines-and-the-worker.md).
+- Failure reasons are stable codes: `printer_unavailable`, `document_missing`, `submit_failed`, `interrupted`, `provider_lost_job`, `printer_error`.
+- Documents are deleted once their job finishes; orphans are removed at startup.
 
 ## Print options
 
@@ -86,10 +88,10 @@ Implemented in `apps/api/internal/printer/options.go`: copies, color mode, paper
 | GET | `/healthz` | Liveness — **Implemented** |
 | GET | `/api/v1/printers` | Printers with status and capabilities — **Implemented** (Simulated data) |
 | GET | `/api/v1/printers/{id}` | One printer — **Implemented** (Simulated data) |
-| POST | `/api/v1/jobs` | Multipart: `printerId`, `options` (JSON), `file` (PDF) → `201` queued job — **Implemented** (no processing yet) |
+| POST | `/api/v1/jobs` | Multipart: `printerId`, `options` (JSON), `file` (PDF) → `201` queued job, processed in the background — **Implemented** |
 | GET | `/api/v1/jobs` | List jobs (filters: `printerId`, `status`) |
 | GET | `/api/v1/jobs/{id}` | Job details, status and history — **Implemented** |
-| POST | `/api/v1/jobs/{id}/cancel` | Cancel a job |
+| POST | `/api/v1/jobs/{id}/cancel` | Cancel a job → `200`, `404`, or `409 job_not_cancellable` — **Implemented** |
 
 Authentication endpoints are defined in the auth milestone. Job status is fetched by polling in the MVP.
 
