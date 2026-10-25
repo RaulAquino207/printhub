@@ -36,6 +36,13 @@ tasks:
       - ".next"
       - "!.next/cache"
 
+  test:
+    command: "vitest run"
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+      - "vitest.config.mts"
+
   typecheck:
     command: "tsc --noEmit"
     inputs:
