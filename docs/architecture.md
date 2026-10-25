@@ -1,0 +1,94 @@
+# Architecture
+
+PrintHub lets authorized users on a private network upload a PDF, choose a printer and the options it supports, submit a print job and follow its status.
+
+Status labels used in this document: **Implemented**, **Simulated**, **Planned**, **Not yet verified**.
+
+## Overview
+
+```text
+                     local development                              production (Planned, later milestone)
+Browser ──> http://localhost:3000  (web, next dev)        Browser ──Tailscale──> Traefik
+   │                                                                 ├── printhub.homelab      ──> web container
+   └──────> http://localhost:8080  (api, go)                         └── api.printhub.homelab  ──> api container
+                │                                                                                   │
+                └── MockPrintingProvider (Simulated)                     CUPS/IPP provider ──Wi-Fi──> Raspberry Pi Zero WH
+                                                                                                     └── USB hub ──> M1132, CP1215
+```
+
+The web and the API are separate applications in one monorepo. They are developed, built and (later) deployed independently ([ADR 0002](adr/0002-separate-frontend-and-api-deployments.md)) and talk over HTTP across origins ([ADR 0003](adr/0003-subdomain-routing-and-cors.md)).
+
+## Components
+
+| Component | Location | Responsibility | Status |
+|---|---|---|---|
+| Web | `apps/web` | Next.js App Router UI in pt-BR: new print job, print queue | Planned |
+| API | `apps/api` | Go + Chi HTTP API: printers, capabilities, uploads, jobs, auth | Planned |
+| Database | SQLite file owned by the API | Printers, jobs, users, sessions | Planned |
+| Job worker | Inside the API process | Moves jobs through their lifecycle, talks to the provider | Planned |
+| Mock provider | `apps/api` | Simulated printers, capabilities, success, failure, offline, cancellation | Planned (Simulated) |
+| CUPS provider | `apps/api` | Real printing over IPP | Planned |
+| Print bridge | Raspberry Pi Zero WH | CUPS + drivers next to the printers | Not yet verified — see [hardware.md](hardware.md) |
+| Power controller | Separate component | Smart plugs via Home Assistant | Future, disabled |
+
+## Boundaries
+
+| API (source of truth) | Web (presentation) |
+|---|---|
+| Printers, capabilities, validation of print options | Layout, navigation, pt-BR copy |
+| Upload limits, PDF content validation, storage outside any public path | Early client-side checks (size/type) for fast feedback only |
+| Job state machine, worker, restart reconciliation | Polling and rendering of job state; loading, empty and error states |
+| Users, sessions, authorization, CORS policy | Login form; sends credentialed requests |
+| Printing provider and future power controller | No business rules |
+
+The contract is versioned JSON under `/api/v1`. The web adapts the options it shows to the capabilities it receives and never branches on printer model names.
+
+## Domain model (initial)
+
+- **Printer** — `ID`, `Name`, `Model`, `Destination` (provider-specific queue or URI), `Status` (online / offline / unknown). Has many jobs.
+- **Capabilities** — color, paper sizes, duplex, max copies, page ranges, orientations. Reported by the provider, not hardcoded.
+- **PrintOptions** — what the user chose; validated against the printer's capabilities.
+- **PrintJob** — `ID`, `PrinterID`, document metadata, options, status, provider job ID, error details, timestamps per transition.
+
+## Job lifecycle (proposed)
+
+```text
+QUEUED → PROCESSING → SUBMITTED → PRINTING → COMPLETED
+  │           │            │           │
+  └───────────┴────────────┴───────────┴──→ FAILED
+QUEUED, SUBMITTED, PRINTING ──cancel──→ CANCELLED
+```
+
+- `PROCESSING`: validating the document and sending it to the provider.
+- `SUBMITTED`: the provider accepted the job and returned its own job ID.
+- `PRINTING`: the provider reports the job as processing.
+- `COMPLETED`: the provider reports the job as finished. **This does not prove that paper came out**; the UI says "Enviado à impressora".
+- Jobs persist; on startup the worker reconciles every non-terminal job with the provider.
+
+The exact transitions are finalized and tested in the job lifecycle milestone.
+
+## API (initial)
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/healthz` | Liveness |
+| GET | `/api/v1/printers` | Printers with status |
+| GET | `/api/v1/printers/{id}` | Printer details and capabilities |
+| POST | `/api/v1/jobs` | Multipart: `printerId`, `options` (JSON), `file` |
+| GET | `/api/v1/jobs` | List jobs (filters: `printerId`, `status`) |
+| GET | `/api/v1/jobs/{id}` | Job details and status |
+| POST | `/api/v1/jobs/{id}/cancel` | Cancel a job |
+
+Authentication endpoints are defined in the auth milestone. Job status is fetched by polling in the MVP.
+
+## Environments
+
+| | Local (current phase) | Production (Planned) |
+|---|---|---|
+| Web origin | `http://localhost:3000` | `https://printhub.homelab` |
+| API origin | `http://localhost:8080` | `https://api.printhub.homelab` |
+| Orchestration | `moon run` with hot reload | Two Docker images, two Coolify services |
+| Printing | Mock provider | CUPS provider → Raspberry Pi |
+| Access | This machine | Tailscale + application authentication |
+
+Production infrastructure (Docker images, CI, Coolify, Traefik, TLS, DNS) is implemented only after explicit approval.
