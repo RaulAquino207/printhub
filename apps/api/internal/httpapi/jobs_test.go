@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/RaulAquino207/printhub/apps/api/internal/document"
 	"github.com/RaulAquino207/printhub/apps/api/internal/job"
@@ -48,6 +49,18 @@ func (f *fakeJobStore) GetJob(_ context.Context, id job.ID) (*job.Job, error) {
 	return j, nil
 }
 
+// fakeWorker records notifications and cancels by delegating to a function.
+type fakeWorker struct {
+	notified int
+	cancel   func(job.ID) (*job.Job, error)
+}
+
+func (f *fakeWorker) Notify() { f.notified++ }
+
+func (f *fakeWorker) Cancel(_ context.Context, id job.ID) (*job.Job, error) {
+	return f.cancel(id)
+}
+
 const testMaxBytes = 1024
 
 var uploadPrinters = []printer.Printer{
@@ -68,6 +81,7 @@ var uploadPrinters = []printer.Printer{
 type uploadEnv struct {
 	router  http.Handler
 	jobs    *fakeJobStore
+	worker  *fakeWorker
 	docsDir string
 }
 
@@ -79,13 +93,15 @@ func newUploadEnv(t *testing.T) *uploadEnv {
 		t.Fatal(err)
 	}
 	jobs := &fakeJobStore{jobs: map[job.ID]*job.Job{}}
+	worker := &fakeWorker{}
 	router := NewRouter(Dependencies{
 		Logger:    slog.New(slog.DiscardHandler),
 		Printers:  fakeDirectory{printers: uploadPrinters},
 		Jobs:      jobs,
 		Documents: docs,
+		Worker:    worker,
 	})
-	return &uploadEnv{router: router, jobs: jobs, docsDir: docsDir}
+	return &uploadEnv{router: router, jobs: jobs, worker: worker, docsDir: docsDir}
 }
 
 func (e *uploadEnv) storedFiles(t *testing.T) []string {
@@ -185,6 +201,9 @@ func TestCreateJob(t *testing.T) {
 	}
 	if _, err := env.jobs.GetJob(context.Background(), job.ID(resp.ID)); err != nil {
 		t.Errorf("job not saved: %v", err)
+	}
+	if env.worker.notified != 1 {
+		t.Errorf("worker notified %d times, want 1", env.worker.notified)
 	}
 
 	// And it can be read back.
@@ -362,5 +381,67 @@ func TestCleanFilename(t *testing.T) {
 		if got := cleanFilename(in); got != want {
 			t.Errorf("cleanFilename(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestCancelJob(t *testing.T) {
+	tests := []struct {
+		name     string
+		cancel   func(job.ID) (*job.Job, error)
+		wantCode int
+		wantErr  string
+	}{
+		{
+			name: "cancelled",
+			cancel: func(id job.ID) (*job.Job, error) {
+				j := job.New(id, job.PrinterSnapshot{ID: "mono"}, job.Document{}, printer.Options{}, time.Now())
+				return j, j.Cancel(time.Now())
+			},
+			wantCode: http.StatusOK,
+		},
+		{
+			name:     "not found",
+			cancel:   func(job.ID) (*job.Job, error) { return nil, job.ErrNotFound },
+			wantCode: http.StatusNotFound,
+			wantErr:  "job_not_found",
+		},
+		{
+			name: "too late",
+			cancel: func(job.ID) (*job.Job, error) {
+				return nil, &job.TransitionError{From: job.StatusCompleted, To: job.StatusCancelled}
+			},
+			wantCode: http.StatusConflict,
+			wantErr:  "job_not_cancellable",
+		},
+		{
+			name:     "provider error",
+			cancel:   func(job.ID) (*job.Job, error) { return nil, errors.New("cups unreachable") },
+			wantCode: http.StatusInternalServerError,
+			wantErr:  "internal_error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := newUploadEnv(t)
+			env.worker.cancel = tt.cancel
+			rec := httptest.NewRecorder()
+
+			env.router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/jobs/j1/cancel", nil))
+
+			if rec.Code != tt.wantCode {
+				t.Fatalf("status = %d, want %d; body: %s", rec.Code, tt.wantCode, rec.Body)
+			}
+			if tt.wantErr != "" {
+				if code := decodeError(t, rec).Code; code != tt.wantErr {
+					t.Errorf("code = %q, want %q", code, tt.wantErr)
+				}
+				return
+			}
+			var resp jobResponse
+			if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil || resp.Status != job.StatusCancelled {
+				t.Errorf("response = %+v, %v; want a cancelled job", resp, err)
+			}
+		})
 	}
 }

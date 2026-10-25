@@ -19,6 +19,7 @@ type Dependencies struct {
 	Printers    PrinterDirectory
 	Jobs        JobStore
 	Documents   DocumentStore
+	Worker      JobRunner
 }
 
 // server holds the dependencies shared by handlers. Handlers that need them
@@ -28,6 +29,7 @@ type server struct {
 	printers  PrinterDirectory
 	jobs      JobStore
 	documents DocumentStore
+	worker    JobRunner
 }
 
 // NewRouter returns the root HTTP handler of the API.
@@ -37,6 +39,7 @@ func NewRouter(deps Dependencies) http.Handler {
 		printers:  deps.Printers,
 		jobs:      deps.Jobs,
 		documents: deps.Documents,
+		worker:    deps.Worker,
 	}
 
 	r := chi.NewRouter()
@@ -53,6 +56,7 @@ func NewRouter(deps Dependencies) http.Handler {
 		r.Get("/printers/{id}", s.getPrinter)
 		r.Post("/jobs", s.createJob)
 		r.Get("/jobs/{id}", s.getJob)
+		r.Post("/jobs/{id}/cancel", s.cancelJob)
 	})
 
 	return r

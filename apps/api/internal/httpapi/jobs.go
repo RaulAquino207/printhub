@@ -27,6 +27,16 @@ type JobStore interface {
 	GetJob(ctx context.Context, id job.ID) (*job.Job, error)
 }
 
+// JobRunner is the background worker as seen by HTTP handlers.
+// *worker.Worker satisfies it.
+type JobRunner interface {
+	// Notify wakes the worker after a job is queued.
+	Notify()
+	// Cancel cancels a job; the error matches job.ErrInvalidTransition when
+	// the job can no longer be cancelled.
+	Cancel(ctx context.Context, id job.ID) (*job.Job, error)
+}
+
 // DocumentStore keeps uploaded files. *document.Storage satisfies it.
 type DocumentStore interface {
 	Save(id string, r io.Reader) (int64, error)
@@ -183,6 +193,7 @@ func (s *server) createJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jobSaved = true
+	s.worker.Notify()
 
 	s.logger.Info("job created", "job_id", id, "printer_id", p.ID, "size_bytes", doc.SizeBytes)
 	w.Header().Set("Location", "/api/v1/jobs/"+string(id))
@@ -264,6 +275,23 @@ func (s *server) getJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, toJobResponse(j))
+}
+
+func (s *server) cancelJob(w http.ResponseWriter, r *http.Request) {
+	id := job.ID(chi.URLParam(r, "id"))
+
+	j, err := s.worker.Cancel(r.Context(), id)
+	switch {
+	case errors.Is(err, job.ErrNotFound):
+		writeError(w, http.StatusNotFound, "job_not_found", "job not found")
+	case errors.Is(err, job.ErrInvalidTransition):
+		writeError(w, http.StatusConflict, "job_not_cancellable", "the job can no longer be cancelled")
+	case err != nil:
+		s.logger.Error("cancel job", "job_id", id, "error", err)
+		writeError(w, http.StatusInternalServerError, "internal_error", "could not cancel the job")
+	default:
+		writeJSON(w, http.StatusOK, toJobResponse(j))
+	}
 }
 
 type jobResponse struct {

@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -21,10 +22,15 @@ import (
 	"github.com/RaulAquino207/printhub/apps/api/internal/printer"
 	"github.com/RaulAquino207/printhub/apps/api/internal/printing/mock"
 	"github.com/RaulAquino207/printhub/apps/api/internal/store"
+	"github.com/RaulAquino207/printhub/apps/api/internal/worker"
 )
 
-// shutdownTimeout bounds how long in-flight requests may take to finish on shutdown.
-const shutdownTimeout = 10 * time.Second
+const (
+	// shutdownTimeout bounds how long in-flight requests may take to finish on shutdown.
+	shutdownTimeout = 10 * time.Second
+	// workerInterval is how often the worker polls jobs when nothing wakes it.
+	workerInterval = time.Second
+)
 
 type config struct {
 	// addr is the TCP address to listen on. The default binds to localhost
@@ -107,16 +113,6 @@ func run(logger *slog.Logger) error {
 	defer db.Close()
 	logger.Info("database ready", "path", dbPath)
 
-	// Jobs interrupted by the last shutdown or crash. The worker (milestone 8)
-	// will reconcile them; for now they are only reported.
-	unfinished, err := db.ListUnfinished(ctx)
-	if err != nil {
-		return err
-	}
-	if len(unfinished) > 0 {
-		logger.Warn("unfinished jobs found; they will be reconciled once the worker exists", "count", len(unfinished))
-	}
-
 	documents, err := document.NewStorage(filepath.Join(cfg.dataDir, "documents"), cfg.maxUploadBytes)
 	if err != nil {
 		return err
@@ -126,6 +122,42 @@ func run(logger *slog.Logger) error {
 	printerConfigs, provider := mock.Demo()
 	printers := printer.NewRegistry(printerConfigs, provider)
 
+	jobs := worker.New(worker.Config{
+		Store:     db,
+		Printers:  printers,
+		Provider:  provider,
+		Documents: documents,
+		Logger:    logger,
+		Interval:  workerInterval,
+	})
+
+	// Before accepting uploads, so the cleanup never races with one.
+	if err := jobs.CleanDocuments(ctx); err != nil {
+		return fmt.Errorf("clean documents: %w", err)
+	}
+
+	// Jobs left unfinished by the last run are recovered by the worker's
+	// first pass.
+	unfinished, err := db.ListUnfinished(ctx)
+	if err != nil {
+		return err
+	}
+	if len(unfinished) > 0 {
+		logger.Info("recovering unfinished jobs", "count", len(unfinished))
+	}
+
+	// The worker has its own context: it keeps running while HTTP requests
+	// drain on shutdown, and stops after them. Deferred calls run in reverse
+	// order, so it also stops before the database is closed.
+	workerCtx, stopWorker := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Go(func() { jobs.Run(workerCtx) })
+	defer func() {
+		stopWorker()
+		wg.Wait()
+		logger.Info("worker stopped")
+	}()
+
 	srv := &http.Server{
 		Addr: cfg.addr,
 		Handler: httpapi.NewRouter(httpapi.Dependencies{
@@ -134,6 +166,7 @@ func run(logger *slog.Logger) error {
 			Printers:    printers,
 			Jobs:        db,
 			Documents:   documents,
+			Worker:      jobs,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
