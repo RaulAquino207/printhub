@@ -260,3 +260,23 @@ func TestListJobs(t *testing.T) {
 		})
 	}
 }
+
+// Times are compared and sorted as text in SQL, so they must sort like the
+// instants they represent, including whole seconds versus fractions.
+func TestFormatTimeSortsChronologically(t *testing.T) {
+	times := []time.Time{
+		time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC),
+		time.Date(2026, 10, 25, 12, 0, 0, 500_000_000, time.UTC),
+		time.Date(2026, 10, 25, 12, 0, 1, 0, time.UTC),
+		time.Date(2026, 10, 25, 9, 0, 1, 0, time.FixedZone("BRT", -3*3600)), // 12:00:01Z
+	}
+	for i := 1; i < len(times); i++ {
+		a, b := formatTime(times[i-1]), formatTime(times[i])
+		if times[i-1].Before(times[i]) && !(a < b) {
+			t.Errorf("%s should sort before %s", a, b)
+		}
+	}
+	if got, err := parseTime(formatTime(times[1])); err != nil || !got.Equal(times[1]) {
+		t.Errorf("round trip = %v, %v", got, err)
+	}
+}

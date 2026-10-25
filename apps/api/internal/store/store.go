@@ -73,12 +73,20 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
-// Times are stored as RFC 3339 text in UTC: sortable, readable with the
-// sqlite3 CLI, and free of Go's monotonic clock reading.
+// timeLayout is RFC 3339 in UTC with a fixed nine-digit fraction. Fixed
+// width matters: SQL compares and sorts these strings as text, and
+// time.RFC3339Nano trims trailing zeros, which would order "…:00.5Z" before
+// "…:00Z".
+const timeLayout = "2006-01-02T15:04:05.000000000Z07:00"
+
+// Times are stored as text in UTC: sortable, readable with the sqlite3 CLI,
+// and free of Go's monotonic clock reading.
 func formatTime(t time.Time) string {
-	return t.UTC().Format(time.RFC3339Nano)
+	return t.UTC().Format(timeLayout)
 }
 
+// parseTime accepts any RFC 3339 fraction length, including rows written
+// before timeLayout was fixed-width.
 func parseTime(s string) (time.Time, error) {
 	return time.Parse(time.RFC3339Nano, s)
 }
