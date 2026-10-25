@@ -17,6 +17,23 @@ Early development. Nothing is implemented yet; printing will be **simulated** un
 | Web (`apps/web`) | Next.js (App Router), TypeScript, Tailwind CSS, shadcn/ui (Base UI), Lucide |
 | Printing | CUPS / IPP, via a Raspberry Pi Zero WH print bridge (planned) |
 
+## Development setup
+
+Tool versions are pinned in [`.prototools`](.prototools) and installed by [proto](https://moonrepo.dev/proto); tasks are orchestrated by [moon](https://moonrepo.dev/moon).
+
+```bash
+# 1. Install proto (once per machine)
+curl -fsSL https://moonrepo.dev/install/proto.sh | bash
+
+# 2. Install the pinned versions of proto, moon, Go, Node.js and pnpm
+proto install
+
+# 3. Prepare moon's toolchains
+moon setup
+```
+
+How the pieces fit together: [docs/learning/infra/proto-and-moon.md](docs/learning/infra/proto-and-moon.md).
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)

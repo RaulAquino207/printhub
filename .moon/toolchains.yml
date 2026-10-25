@@ -1,0 +1,13 @@
+# https://moonrepo.dev/docs/config/toolchain
+# Versions are not set here: each toolchain inherits its version from
+# .prototools (versionFromPrototools defaults to true).
+$schema: "./cache/schemas/toolchains.json"
+
+go: {}
+
+javascript:
+  packageManager: "pnpm"
+
+node: {}
+
+pnpm: {}
