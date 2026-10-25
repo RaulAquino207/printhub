@@ -105,20 +105,41 @@ func (s *Store) GetJob(ctx context.Context, id job.ID) (*job.Job, error) {
 // ListUnfinished returns the jobs that were not in a terminal status, oldest
 // first. At startup they are what the worker must recover.
 func (s *Store) ListUnfinished(ctx context.Context) ([]*job.Job, error) {
-	statuses := job.UnfinishedStatuses()
-	args := make([]any, len(statuses))
-	for i, st := range statuses {
-		args[i] = st
-	}
-
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT `+jobColumns+` FROM jobs
-		 WHERE status IN (`+placeholders(len(args))+`)
-		 ORDER BY created_at, id`,
-		args...,
-	)
+	jobs, err := s.queryJobs(ctx, job.UnfinishedStatuses(), "created_at, id", -1)
 	if err != nil {
 		return nil, fmt.Errorf("list unfinished jobs: %w", err)
+	}
+	return jobs, nil
+}
+
+// ListJobs returns up to limit jobs in any of the given statuses (all
+// statuses if none are given), newest first.
+func (s *Store) ListJobs(ctx context.Context, statuses []job.Status, limit int) ([]*job.Job, error) {
+	jobs, err := s.queryJobs(ctx, statuses, "created_at DESC, id DESC", limit)
+	if err != nil {
+		return nil, fmt.Errorf("list jobs: %w", err)
+	}
+	return jobs, nil
+}
+
+// queryJobs loads jobs filtered by status, with their history. orderBy is
+// always a constant from this file, never user input. A negative limit means
+// no limit.
+func (s *Store) queryJobs(ctx context.Context, statuses []job.Status, orderBy string, limit int) ([]*job.Job, error) {
+	query := `SELECT ` + jobColumns + ` FROM jobs`
+	args := make([]any, 0, len(statuses)+1)
+	if len(statuses) > 0 {
+		for _, st := range statuses {
+			args = append(args, st)
+		}
+		query += ` WHERE status IN (` + placeholders(len(statuses)) + `)`
+	}
+	query += ` ORDER BY ` + orderBy + ` LIMIT ?`
+	args = append(args, limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
 	}
 
 	var jobs []*job.Job
@@ -126,18 +147,18 @@ func (s *Store) ListUnfinished(ctx context.Context) ([]*job.Job, error) {
 		j, err := scanJob(rows)
 		if err != nil {
 			rows.Close()
-			return nil, fmt.Errorf("list unfinished jobs: %w", err)
+			return nil, err
 		}
 		jobs = append(jobs, j)
 	}
 	// Close (and check iteration errors) before the next query: with a single
 	// connection, open rows would block loadHistory forever.
 	if err := errors.Join(rows.Err(), rows.Close()); err != nil {
-		return nil, fmt.Errorf("list unfinished jobs: %w", err)
+		return nil, err
 	}
 
 	if err := s.loadHistory(ctx, jobs); err != nil {
-		return nil, fmt.Errorf("list unfinished jobs: %w", err)
+		return nil, err
 	}
 	return jobs, nil
 }

@@ -54,6 +54,7 @@ func NewRouter(deps Dependencies) http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/printers", s.listPrinters)
 		r.Get("/printers/{id}", s.getPrinter)
+		r.Get("/jobs", s.listJobs)
 		r.Post("/jobs", s.createJob)
 		r.Get("/jobs/{id}", s.getJob)
 		r.Post("/jobs/{id}/cancel", s.cancelJob)

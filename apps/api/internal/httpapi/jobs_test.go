@@ -24,9 +24,10 @@ import (
 
 // fakeJobStore keeps jobs in memory.
 type fakeJobStore struct {
-	mu      sync.Mutex
-	jobs    map[job.ID]*job.Job
-	saveErr error
+	mu        sync.Mutex
+	jobs      map[job.ID]*job.Job
+	saveErr   error
+	lastLimit int
 }
 
 func (f *fakeJobStore) SaveJob(_ context.Context, j *job.Job) error {
@@ -37,6 +38,20 @@ func (f *fakeJobStore) SaveJob(_ context.Context, j *job.Job) error {
 	}
 	f.jobs[j.ID] = j
 	return nil
+}
+
+// ListJobs returns the stored jobs with a matching status, ignoring order.
+func (f *fakeJobStore) ListJobs(_ context.Context, statuses []job.Status, limit int) ([]*job.Job, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastLimit = limit
+	var out []*job.Job
+	for _, j := range f.jobs {
+		if len(statuses) == 0 || slices.Contains(statuses, j.Status) {
+			out = append(out, j)
+		}
+	}
+	return out, nil
 }
 
 func (f *fakeJobStore) GetJob(_ context.Context, id job.ID) (*job.Job, error) {
@@ -443,5 +458,50 @@ func TestCancelJob(t *testing.T) {
 				t.Errorf("response = %+v, %v; want a cancelled job", resp, err)
 			}
 		})
+	}
+}
+
+func TestListJobs(t *testing.T) {
+	env := newUploadEnv(t)
+	queued := job.New("q", job.PrinterSnapshot{ID: "mono"}, job.Document{}, printer.Options{}, time.Now())
+	cancelled := job.New("c", job.PrinterSnapshot{ID: "mono"}, job.Document{}, printer.Options{}, time.Now())
+	cancelled.Cancel(time.Now())
+	env.jobs.jobs = map[job.ID]*job.Job{"q": queued, "c": cancelled}
+
+	get := func(query string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		env.router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/jobs"+query, nil))
+		return rec
+	}
+
+	rec := get("?status=queued,printing")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d; body: %s", rec.Code, rec.Body)
+	}
+	var body jobListResponse
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Jobs) != 1 || body.Jobs[0].ID != "q" {
+		t.Errorf("jobs = %+v, want only q", body.Jobs)
+	}
+	if env.jobs.lastLimit != defaultListLimit {
+		t.Errorf("limit = %d, want the default %d", env.jobs.lastLimit, defaultListLimit)
+	}
+
+	if get("?limit=5").Code != http.StatusOK || env.jobs.lastLimit != 5 {
+		t.Errorf("limit=5 not passed through (got %d)", env.jobs.lastLimit)
+	}
+
+	for _, bad := range []string{"?status=nope", "?limit=0", "?limit=1000", "?limit=x"} {
+		if rec := get(bad); rec.Code != http.StatusUnprocessableEntity {
+			t.Errorf("%s: status = %d, want 422", bad, rec.Code)
+		}
+	}
+
+	// An empty result is an empty array, not null.
+	env.jobs.jobs = map[job.ID]*job.Job{}
+	if got := strings.TrimSpace(get("").Body.String()); got != `{"jobs":[]}` {
+		t.Errorf("empty list body = %s", got)
 	}
 }

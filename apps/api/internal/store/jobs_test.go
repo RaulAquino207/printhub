@@ -205,3 +205,58 @@ func TestListUnfinished(t *testing.T) {
 		t.Errorf("submitted job lost its provider job ID: %q", unfinished[0].ProviderJobID)
 	}
 }
+
+func TestListJobs(t *testing.T) {
+	ctx := context.Background()
+	s := openTestStore(t, filepath.Join(t.TempDir(), "printhub.db"))
+	defer s.Close()
+
+	// a (oldest, queued), b (cancelled), c (newest, queued)
+	for i, id := range []job.ID{"a", "b", "c"} {
+		j := newJob(id, at(i))
+		if id == "b" {
+			if err := j.Cancel(at(i)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := s.SaveJob(ctx, j); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ids := func(jobs []*job.Job) []job.ID {
+		var out []job.ID
+		for _, j := range jobs {
+			out = append(out, j.ID)
+		}
+		return out
+	}
+
+	tests := []struct {
+		name     string
+		statuses []job.Status
+		limit    int
+		want     []job.ID
+	}{
+		{name: "all, newest first", limit: 10, want: []job.ID{"c", "b", "a"}},
+		{name: "limit", limit: 2, want: []job.ID{"c", "b"}},
+		{name: "by status", statuses: []job.Status{job.StatusQueued}, limit: 10, want: []job.ID{"c", "a"}},
+		{name: "no match", statuses: []job.Status{job.StatusFailed}, limit: 10, want: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := s.ListJobs(ctx, tt.statuses, tt.limit)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(ids(got), tt.want) {
+				t.Errorf("ids = %v, want %v", ids(got), tt.want)
+			}
+			for _, j := range got {
+				if len(j.History) == 0 {
+					t.Errorf("%s: history not loaded", j.ID)
+				}
+			}
+		})
+	}
+}

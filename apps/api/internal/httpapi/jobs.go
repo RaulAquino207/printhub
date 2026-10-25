@@ -10,6 +10,8 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -25,6 +27,7 @@ import (
 type JobStore interface {
 	SaveJob(ctx context.Context, j *job.Job) error
 	GetJob(ctx context.Context, id job.ID) (*job.Job, error)
+	ListJobs(ctx context.Context, statuses []job.Status, limit int) ([]*job.Job, error)
 }
 
 // JobRunner is the background worker as seen by HTTP handlers.
@@ -52,7 +55,15 @@ const (
 	multipartOverhead = 1 << 20
 	maxFilenameRunes  = 200
 	defaultFilename   = "documento.pdf"
+
+	defaultListLimit = 50
+	maxListLimit     = 200
 )
+
+var allStatuses = []job.Status{
+	job.StatusQueued, job.StatusProcessing, job.StatusSubmitted, job.StatusPrinting,
+	job.StatusCompleted, job.StatusFailed, job.StatusCancelled,
+}
 
 // optionsRequest is the JSON contract of the "options" form field.
 type optionsRequest struct {
@@ -259,6 +270,56 @@ func cleanFilename(name string) string {
 		return defaultFilename
 	}
 	return name
+}
+
+type jobListResponse struct {
+	Jobs []jobResponse `json:"jobs"`
+}
+
+// listJobs answers GET /api/v1/jobs?status=queued,printing&limit=50, newest
+// first. Without status, every status is included.
+func (s *server) listJobs(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	var fields []fieldError
+
+	var statuses []job.Status
+	if raw := q.Get("status"); raw != "" {
+		for part := range strings.SplitSeq(raw, ",") {
+			st := job.Status(strings.TrimSpace(part))
+			if !slices.Contains(allStatuses, st) {
+				fields = append(fields, fieldError{Field: "status", Reason: "invalid"})
+				break
+			}
+			statuses = append(statuses, st)
+		}
+	}
+
+	limit := defaultListLimit
+	if raw := q.Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 || n > maxListLimit {
+			fields = append(fields, fieldError{Field: "limit", Reason: "out_of_range"})
+		}
+		limit = n
+	}
+
+	if len(fields) > 0 {
+		writeValidationError(w, fields)
+		return
+	}
+
+	jobs, err := s.jobs.ListJobs(r.Context(), statuses, limit)
+	if err != nil {
+		s.logger.Error("list jobs", "error", err)
+		writeError(w, http.StatusInternalServerError, "internal_error", "could not list jobs")
+		return
+	}
+
+	resp := jobListResponse{Jobs: make([]jobResponse, 0, len(jobs))}
+	for _, j := range jobs {
+		resp.Jobs = append(resp.Jobs, toJobResponse(j))
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (s *server) getJob(w http.ResponseWriter, r *http.Request) {
