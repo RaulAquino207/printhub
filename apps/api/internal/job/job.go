@@ -125,6 +125,8 @@ type Job struct {
 	ProviderJobID string
 	// FailureReason explains why the job failed; empty otherwise.
 	FailureReason string
+	// CreatedBy is the username of whoever sent the job.
+	CreatedBy string
 	// History holds every status the job entered, oldest first. The first
 	// entry is the creation time.
 	History []Transition

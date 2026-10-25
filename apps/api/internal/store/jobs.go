@@ -26,8 +26,8 @@ func (s *Store) SaveJob(ctx context.Context, j *job.Job) error {
 			id, printer_id, printer_name, printer_model, printer_simulated,
 			document_name, document_size_bytes,
 			copies, color_mode, paper_size, orientation, duplex, page_ranges,
-			status, provider_job_id, failure_reason, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			status, provider_job_id, failure_reason, created_at, updated_at, created_by
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (id) DO UPDATE SET
 			status          = excluded.status,
 			provider_job_id = excluded.provider_job_id,
@@ -36,7 +36,7 @@ func (s *Store) SaveJob(ctx context.Context, j *job.Job) error {
 		j.ID, j.Printer.ID, j.Printer.Name, j.Printer.Model, j.Printer.Simulated,
 		j.Document.Name, j.Document.SizeBytes,
 		j.Options.Copies, j.Options.ColorMode, j.Options.PaperSize, j.Options.Orientation, j.Options.Duplex, j.Options.PageRanges,
-		j.Status, j.ProviderJobID, j.FailureReason, formatTime(j.CreatedAt()), formatTime(j.UpdatedAt()),
+		j.Status, j.ProviderJobID, j.FailureReason, formatTime(j.CreatedAt()), formatTime(j.UpdatedAt()), j.CreatedBy,
 	)
 	if err != nil {
 		return fmt.Errorf("save job %s: %w", j.ID, err)
@@ -64,7 +64,7 @@ const jobColumns = `
 	id, printer_id, printer_name, printer_model, printer_simulated,
 	document_name, document_size_bytes,
 	copies, color_mode, paper_size, orientation, duplex, page_ranges,
-	status, provider_job_id, failure_reason`
+	status, provider_job_id, failure_reason, created_by`
 
 // scanner is satisfied by both *sql.Row and *sql.Rows.
 type scanner interface {
@@ -77,7 +77,7 @@ func scanJob(row scanner) (*job.Job, error) {
 		&j.ID, &j.Printer.ID, &j.Printer.Name, &j.Printer.Model, &j.Printer.Simulated,
 		&j.Document.Name, &j.Document.SizeBytes,
 		&j.Options.Copies, &j.Options.ColorMode, &j.Options.PaperSize, &j.Options.Orientation, &j.Options.Duplex, &j.Options.PageRanges,
-		&j.Status, &j.ProviderJobID, &j.FailureReason,
+		&j.Status, &j.ProviderJobID, &j.FailureReason, &j.CreatedBy,
 	)
 	if err != nil {
 		return nil, err

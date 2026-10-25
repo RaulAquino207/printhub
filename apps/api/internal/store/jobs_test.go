@@ -38,7 +38,7 @@ var t0 = time.Date(2026, 10, 25, 12, 0, 0, 123456789, time.UTC)
 func at(sec int) time.Time { return t0.Add(time.Duration(sec) * time.Second) }
 
 func newJob(id job.ID, created time.Time) *job.Job {
-	return job.New(id,
+	j := job.New(id,
 		job.PrinterSnapshot{ID: "color-laser", Name: "Laser colorida", Model: "Simulated color laser", Simulated: true},
 		job.Document{Name: "relatório.pdf", SizeBytes: 48213},
 		printer.Options{
@@ -51,6 +51,8 @@ func newJob(id job.ID, created time.Time) *job.Job {
 		},
 		created,
 	)
+	j.CreatedBy = "raul"
+	return j
 }
 
 func TestOpenConfiguresSQLite(t *testing.T) {
