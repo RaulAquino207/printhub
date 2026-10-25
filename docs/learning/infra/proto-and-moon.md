@@ -45,7 +45,7 @@ proto = "0.63.2"
 moon = "2.6.4"
 go = "1.27.3"
 node = "24.22.1"
-pnpm = "12.15.0"
+pnpm = "11.28.8"
 ```
 
 ```yaml
@@ -70,7 +70,8 @@ pnpm: {}
 Lessons from the setup:
 
 - Exact versions (not `~` / `^`) keep every environment reproducible; upgrades become explicit commits.
-- Plugins have their own requirements: moon 2.6's Go plugin requires proto ≥ 0.60, and pnpm 12 did not run on proto 0.58. Pinning `proto` itself in `.prototools` makes that requirement visible.
+- Plugins have their own requirements: moon 2.6's Go plugin requires proto ≥ 0.60. Pinning `proto` itself in `.prototools` makes that requirement visible.
+- pnpm 12 ships a placeholder `pnpm` script (no shebang) that its own installer replaces with a native binary. proto does not run that step, so shells can run it but other programs that spawn `pnpm` directly fail with `ENOEXEC` (seen when the shadcn CLI ran `pnpm install`). PrintHub pins pnpm 11 until this works.
 - Node.js 24 (LTS) was chosen over 26 (just entering LTS) for compatibility with Next.js.
 
 ## 5. Alternatives and trade-offs
@@ -90,7 +91,7 @@ Costs of this choice: more configuration to learn, and every contributor (and CI
 proto install            # installs every pinned tool
 go version               # go1.27.3
 node --version           # v24.22.1
-pnpm --version           # 12.15.0
+pnpm --version           # 11.28.8
 moon --version           # moon 2.6.4
 moon setup               # "Setup toolchains successfully!"
 moon toolchain info go   # shows the Go plugin and its settings
