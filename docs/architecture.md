@@ -22,7 +22,7 @@ The web and the API are separate applications in one monorepo. They are develope
 
 | Component | Location | Responsibility | Status |
 |---|---|---|---|
-| Web | `apps/web` | Next.js App Router UI in pt-BR: new print job, print queue | Implemented: shell, API status, new print job flow (upload, options, live status, cancel), print queue |
+| Web | `apps/web` | Next.js App Router UI in pt-BR: new print job, print queue | Implemented: shell, API status, new print job flow (upload, options, live status, cancel), approximate document preview (pdf.js), JPG/PNG converted to PDF in the browser, print queue |
 | API | `apps/api` | Go + Chi HTTP API: printers, capabilities, uploads, jobs, auth | Implemented: health, CORS, printers |
 | Database | SQLite file owned by the API (`PRINTHUB_DATA_DIR/printhub.db`) | Jobs and their history; later users and sessions. Printers stay in configuration for now | Implemented: jobs |
 | Authentication | `apps/api/internal/auth` + `/api/v1/auth/*` | Users (created with `printhub-api user add`), bcrypt passwords, 30-day sessions in an HttpOnly cookie, CSRF checks | Implemented |
