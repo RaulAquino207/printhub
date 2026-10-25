@@ -2,7 +2,9 @@
 
 Small milestones, each reviewed and tested locally before it is committed. Workflow: Learn → Plan → Approve → Implement → Test locally → Review → Approve commit.
 
-Commit messages below are suggestions; final messages are agreed during review.
+Commit messages below are suggestions; the actual history is in `git log`.
+
+**Progress:** milestones 0–3 done (2026-10-25). Next: milestone 4.
 
 ## Phase 1 — Local development
 
