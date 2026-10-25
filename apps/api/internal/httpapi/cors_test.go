@@ -9,7 +9,10 @@ import (
 
 func TestCORS(t *testing.T) {
 	const allowedOrigin = "http://localhost:3000"
-	router := NewRouter(slog.New(slog.DiscardHandler), []string{allowedOrigin})
+	router := NewRouter(Dependencies{
+		Logger:      slog.New(slog.DiscardHandler),
+		CORSOrigins: []string{allowedOrigin},
+	})
 
 	tests := []struct {
 		name            string

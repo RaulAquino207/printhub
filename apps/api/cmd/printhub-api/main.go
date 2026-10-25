@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/RaulAquino207/printhub/apps/api/internal/httpapi"
+	"github.com/RaulAquino207/printhub/apps/api/internal/printer"
+	"github.com/RaulAquino207/printhub/apps/api/internal/printing/mock"
 )
 
 // shutdownTimeout bounds how long in-flight requests may take to finish on shutdown.
@@ -77,9 +79,17 @@ func run(logger *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Only simulated printers exist until the CUPS provider is implemented.
+	printerConfigs, provider := mock.Demo()
+	printers := printer.NewRegistry(printerConfigs, provider)
+
 	srv := &http.Server{
-		Addr:              cfg.addr,
-		Handler:           httpapi.NewRouter(logger, cfg.corsOrigins),
+		Addr: cfg.addr,
+		Handler: httpapi.NewRouter(httpapi.Dependencies{
+			Logger:      logger,
+			CORSOrigins: cfg.corsOrigins,
+			Printers:    printers,
+		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}

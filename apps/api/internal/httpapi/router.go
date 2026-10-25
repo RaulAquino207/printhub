@@ -10,17 +10,39 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// NewRouter returns the root HTTP handler of the API. corsOrigins lists the
-// browser origins allowed to call the API cross-origin (e.g. the web app).
-func NewRouter(logger *slog.Logger, corsOrigins []string) http.Handler {
+// Dependencies are everything the HTTP layer needs, passed explicitly by main.
+type Dependencies struct {
+	Logger *slog.Logger
+	// CORSOrigins lists the browser origins allowed to call the API
+	// cross-origin (e.g. the web app).
+	CORSOrigins []string
+	Printers    PrinterDirectory
+}
+
+// server holds the dependencies shared by handlers. Handlers that need them
+// are methods on *server.
+type server struct {
+	logger   *slog.Logger
+	printers PrinterDirectory
+}
+
+// NewRouter returns the root HTTP handler of the API.
+func NewRouter(deps Dependencies) http.Handler {
+	s := &server{logger: deps.Logger, printers: deps.Printers}
+
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	r.Use(logRequests(logger))
+	r.Use(logRequests(deps.Logger))
 	r.Use(middleware.Recoverer)
-	r.Use(allowOrigins(corsOrigins))
+	r.Use(allowOrigins(deps.CORSOrigins))
 
 	r.Get("/healthz", handleHealth)
+
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Get("/printers", s.listPrinters)
+		r.Get("/printers/{id}", s.getPrinter)
+	})
 
 	return r
 }
