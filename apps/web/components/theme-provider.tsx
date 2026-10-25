@@ -47,7 +47,9 @@ function ThemeHotkey() {
         return
       }
 
-      if (event.key.toLowerCase() !== "d") {
+      // Browser autofill (e.g. on the sign-in form) dispatches keydown
+      // events without a key, so check the type before using it.
+      if (typeof event.key !== "string" || event.key.toLowerCase() !== "d") {
         return
       }
 
