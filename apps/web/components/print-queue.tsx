@@ -6,6 +6,7 @@ import { CircleAlert, History, Inbox } from "lucide-react"
 
 import { EmptyState } from "@/components/empty-state"
 import { JobStatusLabel } from "@/components/job-status-label"
+import { PrinterImage } from "@/components/printer-image"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -114,32 +115,35 @@ function JobRow({ job, onChange }: { job: Job; onChange: () => void }) {
 
   return (
     <li className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:gap-6">
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="truncate font-medium">{job.document.name}</span>
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-          {job.printer.name}
-          {job.printer.simulated && <Badge variant="outline">Simulada</Badge>}
-          <span aria-hidden>·</span>
-          <time dateTime={job.createdAt}>{formatWhen(job.createdAt)}</time>
-          <span aria-hidden>·</span>
-          {formatBytes(job.document.sizeBytes)}
-          {job.createdBy && (
-            <>
-              <span aria-hidden>·</span>
-              por {job.createdBy}
-            </>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <PrinterImage printerId={job.printer.id} size="sm" />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="truncate font-medium">{job.document.name}</span>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            {job.printer.name}
+            {job.printer.simulated && <Badge variant="outline">Simulada</Badge>}
+            <span aria-hidden>·</span>
+            <time dateTime={job.createdAt}>{formatWhen(job.createdAt)}</time>
+            <span aria-hidden>·</span>
+            {formatBytes(job.document.sizeBytes)}
+            {job.createdBy && (
+              <>
+                <span aria-hidden>·</span>
+                por {job.createdBy}
+              </>
+            )}
+          </span>
+          {job.status === "failed" && (
+            <span className="text-sm text-destructive">
+              {failureMessage(job.failureReason)}
+            </span>
           )}
-        </span>
-        {job.status === "failed" && (
-          <span className="text-sm text-destructive">
-            {failureMessage(job.failureReason)}
-          </span>
-        )}
-        {error && (
-          <span role="alert" className="text-sm text-destructive">
-            {error}
-          </span>
-        )}
+          {error && (
+            <span role="alert" className="text-sm text-destructive">
+              {error}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-4 sm:justify-end">

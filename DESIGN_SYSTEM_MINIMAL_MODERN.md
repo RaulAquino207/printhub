@@ -241,7 +241,8 @@ Antes de escrever UI, o agente deve:
 **Telas:** Nova impressão (principal), Fila, Histórico, Configurações.  
 **Layout:** em desktop, upload/preview na área principal e configurações em painel lateral; em mobile, formulário empilhado com CTA bem visível.  
 **Feedback:** estados de upload, fila, processando, concluído, falhou e impressora offline.  
-**Limite:** não implementar opções que a impressora não suporte.
+**Limite:** não implementar opções que a impressora não suporte.  
+**Ilustração da impressora** (adicionado em 2026-10-25): miniatura 4:3 (`PrinterImage`, 64×48 px; 48×36 px em listas densas) com fundo branco e borda sutil, inclusive no modo escuro, sempre ao lado do nome da impressora e com `alt` vazio (o nome já informa). Sem imagem cadastrada, usar o ícone `Printer` do Lucide sobre `bg-muted`. A imagem nunca substitui o selo "Simulada".
 
 O projeto PrintHub utiliza a mesma identidade Minimal / Modern, mas cada novo produto poderá adaptar sua navegação e a cor de marca sem modificar os fundamentos.
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 
 import { JobStatusLabel } from "@/components/job-status-label"
+import { PrinterImage } from "@/components/printer-image"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -75,14 +76,17 @@ export function JobStatusPanel({
       aria-labelledby="job-status-heading"
       className="flex max-w-2xl flex-col gap-6 rounded-xl border bg-card p-6"
     >
-      <div className="flex flex-col gap-1">
-        <h2 id="job-status-heading" className="text-lg font-semibold">
-          Trabalho de impressão
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          {job.document.name} · {formatBytes(job.document.sizeBytes)} ·{" "}
-          {job.printer.name}
-        </p>
+      <div className="flex items-center gap-4">
+        <PrinterImage printerId={job.printer.id} />
+        <div className="flex min-w-0 flex-col gap-1">
+          <h2 id="job-status-heading" className="text-lg font-semibold">
+            Trabalho de impressão
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {job.document.name} · {formatBytes(job.document.sizeBytes)} ·{" "}
+            {job.printer.name}
+          </p>
+        </div>
       </div>
 
       <div aria-live="polite" className="flex flex-col gap-2">

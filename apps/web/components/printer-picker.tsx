@@ -3,6 +3,7 @@
 import { CircleAlert, CircleCheck, CircleHelp, Printer } from "lucide-react"
 
 import { EmptyState } from "@/components/empty-state"
+import { PrinterImage } from "@/components/printer-image"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -118,6 +119,10 @@ function PrinterList({
               value={printer.id}
               disabled={unavailable}
               className="mt-0.5 border-muted-foreground data-disabled:opacity-50"
+            />
+            <PrinterImage
+              printerId={printer.id}
+              className={cn(unavailable && "opacity-50")}
             />
             <div className="flex min-w-0 flex-col gap-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
