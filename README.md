@@ -46,6 +46,7 @@ moon run api:test api:vet api:format api:build
 | Variable | Default | Purpose |
 |---|---|---|
 | `PRINTHUB_API_ADDR` | `localhost:8080` | Address the API listens on |
+| `PRINTHUB_CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed to call the API with credentials; `*` is rejected ([ADR 0003](docs/adr/0003-subdomain-routing-and-cors.md)) |
 
 ## Documentation
 

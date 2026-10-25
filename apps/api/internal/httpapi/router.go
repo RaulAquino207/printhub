@@ -10,13 +10,15 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// NewRouter returns the root HTTP handler of the API.
-func NewRouter(logger *slog.Logger) http.Handler {
+// NewRouter returns the root HTTP handler of the API. corsOrigins lists the
+// browser origins allowed to call the API cross-origin (e.g. the web app).
+func NewRouter(logger *slog.Logger, corsOrigins []string) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
 	r.Use(logRequests(logger))
 	r.Use(middleware.Recoverer)
+	r.Use(allowOrigins(corsOrigins))
 
 	r.Get("/healthz", handleHealth)
 

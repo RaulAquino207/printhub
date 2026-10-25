@@ -3,11 +3,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,12 +24,31 @@ type config struct {
 	// addr is the TCP address to listen on. The default binds to localhost
 	// only, so the API is not reachable from the local network during development.
 	addr string
+	// corsOrigins are the browser origins allowed to call the API (ADR 0003).
+	corsOrigins []string
 }
 
-func loadConfig() config {
-	return config{
-		addr: envOr("PRINTHUB_API_ADDR", "localhost:8080"),
+func loadConfig() (config, error) {
+	origins := splitList(envOr("PRINTHUB_CORS_ALLOWED_ORIGINS", "http://localhost:3000"))
+	if slices.Contains(origins, "*") {
+		return config{}, errors.New("PRINTHUB_CORS_ALLOWED_ORIGINS must list explicit origins, not *")
 	}
+
+	return config{
+		addr:        envOr("PRINTHUB_API_ADDR", "localhost:8080"),
+		corsOrigins: origins,
+	}, nil
+}
+
+// splitList parses a comma-separated value, ignoring blanks and surrounding spaces.
+func splitList(s string) []string {
+	var items []string
+	for item := range strings.SplitSeq(s, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
 }
 
 func envOr(key, fallback string) string {
@@ -46,7 +68,10 @@ func main() {
 }
 
 func run(logger *slog.Logger) error {
-	cfg := loadConfig()
+	cfg, err := loadConfig()
+	if err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
 
 	// ctx is cancelled on Ctrl+C (SIGINT) or SIGTERM (sent by Docker, air, systemd).
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -54,7 +79,7 @@ func run(logger *slog.Logger) error {
 
 	srv := &http.Server{
 		Addr:              cfg.addr,
-		Handler:           httpapi.NewRouter(logger),
+		Handler:           httpapi.NewRouter(logger, cfg.corsOrigins),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
@@ -63,7 +88,7 @@ func run(logger *slog.Logger) error {
 	// waits for either a server error or a shutdown signal.
 	serveErr := make(chan error, 1)
 	go func() {
-		logger.Info("api listening", "addr", cfg.addr)
+		logger.Info("api listening", "addr", cfg.addr, "cors_origins", cfg.corsOrigins)
 		serveErr <- srv.ListenAndServe()
 	}()
 
