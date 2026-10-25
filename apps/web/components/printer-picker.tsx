@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { CircleAlert, CircleCheck, CircleHelp, Printer } from "lucide-react"
 
 import { EmptyState } from "@/components/empty-state"
@@ -9,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Skeleton } from "@/components/ui/skeleton"
-import { usePrinters } from "@/hooks/use-printers"
+import type { usePrinters } from "@/hooks/use-printers"
 import {
   describeCapabilities,
   type Printer as PrinterData,
@@ -18,10 +17,20 @@ import {
 import { cn } from "@/lib/utils"
 
 const HEADING_ID = "printer-picker-heading"
+const ERROR_ID = "printer-picker-error"
 
-export function PrinterPicker() {
-  const printers = usePrinters()
-
+/** Lists printers as radio options. Selection is controlled by the parent. */
+export function PrinterPicker({
+  printers,
+  value,
+  onValueChange,
+  error,
+}: {
+  printers: ReturnType<typeof usePrinters>
+  value?: string
+  onValueChange: (id: string) => void
+  error?: string
+}) {
   return (
     <section aria-labelledby={HEADING_ID} className="flex flex-col gap-3">
       <h2 id={HEADING_ID} className="text-lg font-semibold">
@@ -56,23 +65,40 @@ export function PrinterPicker() {
             description="As impressoras aparecerão aqui quando estiverem configuradas."
           />
         ) : (
-          <PrinterList printers={printers.printers} />
+          <PrinterList
+            printers={printers.printers}
+            value={value}
+            onValueChange={onValueChange}
+            invalid={Boolean(error)}
+          />
         ))}
+
+      {error && (
+        <p id={ERROR_ID} role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
     </section>
   )
 }
 
-function PrinterList({ printers }: { printers: PrinterData[] }) {
-  // Preselect the first printer that can take a job right now.
-  const [selected, setSelected] = useState<string | undefined>(
-    () => printers.find((p) => p.status === "online")?.id
-  )
-
+function PrinterList({
+  printers,
+  value,
+  onValueChange,
+  invalid,
+}: {
+  printers: PrinterData[]
+  value?: string
+  onValueChange: (id: string) => void
+  invalid: boolean
+}) {
   return (
     <RadioGroup
       aria-labelledby={HEADING_ID}
-      value={selected}
-      onValueChange={(value) => setSelected(value as string)}
+      aria-describedby={invalid ? ERROR_ID : undefined}
+      value={value ?? null}
+      onValueChange={(id) => onValueChange(id as string)}
       className="gap-0 divide-y rounded-xl border bg-card"
     >
       {printers.map((printer) => {
