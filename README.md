@@ -36,6 +36,14 @@ How the pieces fit together: [docs/learning/infra/proto-and-moon.md](docs/learni
 
 ## Running locally
 
+Create your account once (users are created on the server; there is no sign-up screen):
+
+```bash
+cd apps/api && go run ./cmd/printhub-api user add <username>   # asks for the password twice
+```
+
+Then:
+
 ```bash
 moon run api:dev web:dev   # API on http://localhost:8080, web on http://localhost:3000 (both hot reload)
 curl localhost:8080/healthz
@@ -48,6 +56,7 @@ moon run :test :vet :typecheck :lint :format :build   # every check of every pro
 | `PRINTHUB_API_ADDR` | `localhost:8080` | Address the API listens on |
 | `PRINTHUB_DATA_DIR` | `data` (relative to `apps/api` when run by moon) | Directory of the SQLite database `printhub.db`; created with `0700` |
 | `PRINTHUB_MAX_UPLOAD_MB` | `50` | Largest PDF accepted, in MiB |
+| `PRINTHUB_COOKIE_SECURE` | `false` | Set to `true` whenever the API is served over HTTPS, so the session cookie is HTTPS-only |
 | `NEXT_PUBLIC_API_URL` (web) | `http://localhost:8080` | API base URL used by the browser; inlined at build time |
 | `NEXT_PUBLIC_MAX_UPLOAD_MB` (web) | `50` | Upload limit for client-side feedback; keep it equal to `PRINTHUB_MAX_UPLOAD_MB` |
 | `PRINTHUB_CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed to call the API with credentials; `*` is rejected ([ADR 0003](docs/adr/0003-subdomain-routing-and-cors.md)) |

@@ -1,6 +1,6 @@
 # 0003 — Subdomain routing, CORS and session cookies
 
-- **Status:** Accepted (cookie scope to be finalized in the authentication milestone)
+- **Status:** Accepted (cookie scope decided 2026-10-25, milestone 11)
 - **Date:** 2026-10-25
 
 ## Context
@@ -34,9 +34,10 @@ Option C was chosen deliberately: learning how CORS, credentialed requests, cook
 
 - Session cookie: `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` in production.
 - Web requests to the API use `credentials: "include"`.
-- Cookie scope is decided in the authentication milestone:
+- Cookie scope — two options were considered:
   - **Host-only on the API** (no `Domain` attribute) — narrowest scope, but Next.js Server Components never receive the session, so authenticated data is fetched client-side.
   - **`Domain=printhub.homelab`** — both the web server and the API receive the cookie, enabling authenticated server-side rendering, at the cost of a wider scope.
+- **Decision: host-only on the API.** Every authenticated request already happens in the browser (printer list, uploads, job polling), so server-side rendering gains nothing from the session, and the narrower scope wins. The web learns who is signed in from `GET /api/v1/auth/me`. Note for local development: cookies ignore ports, so on `localhost` the Next.js server *would* receive it; in production the hosts differ and it does not.
 
 ### Same-site vs same-origin
 

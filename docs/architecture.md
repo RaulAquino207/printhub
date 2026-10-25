@@ -25,6 +25,7 @@ The web and the API are separate applications in one monorepo. They are develope
 | Web | `apps/web` | Next.js App Router UI in pt-BR: new print job, print queue | Implemented: shell, API status, new print job flow (upload, options, live status, cancel), print queue |
 | API | `apps/api` | Go + Chi HTTP API: printers, capabilities, uploads, jobs, auth | Implemented: health, CORS, printers |
 | Database | SQLite file owned by the API (`PRINTHUB_DATA_DIR/printhub.db`) | Jobs and their history; later users and sessions. Printers stay in configuration for now | Implemented: jobs |
+| Authentication | `apps/api/internal/auth` + `/api/v1/auth/*` | Users (created with `printhub-api user add`), bcrypt passwords, 30-day sessions in an HttpOnly cookie, CSRF checks | Implemented |
 | Job worker | `apps/api/internal/worker`, one goroutine in the API process | Moves jobs through their lifecycle, talks to the provider, recovers interrupted jobs, removes finished documents | Implemented |
 | Mock provider | `apps/api/internal/printing/mock` | Simulated printers, capabilities, success, failure, offline, cancellation | Implemented (Simulated): jobs take 2 s queued + 5 s printing; "Laser com defeito" always fails |
 | CUPS provider | `apps/api` | Real printing over IPP | Planned |
@@ -93,7 +94,11 @@ Implemented in `apps/api/internal/printer/options.go`: copies, color mode, paper
 | GET | `/api/v1/jobs/{id}` | Job details, status and history — **Implemented** |
 | POST | `/api/v1/jobs/{id}/cancel` | Cancel a job → `200`, `404`, or `409 job_not_cancellable` — **Implemented** |
 
-Authentication endpoints are defined in the auth milestone. Job status is fetched by polling in the MVP.
+| POST | `/api/v1/auth/login` | JSON `{username, password}` → sets the session cookie — **Implemented** |
+| POST | `/api/v1/auth/logout` | Ends the session and deletes the cookie — **Implemented** |
+| GET | `/api/v1/auth/me` | The signed-in user — **Implemented** |
+
+Every `/api/v1` route except login requires a session (`401 unauthenticated`), and every non-GET request needs an allowed `Origin` plus `X-Requested-With` (`403 csrf_rejected`). `/healthz` is public. Details: [sessions-and-csrf.md](learning/http/sessions-and-csrf.md). Job status is fetched by polling.
 
 ### Conventions
 
