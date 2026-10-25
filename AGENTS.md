@@ -82,7 +82,7 @@ Learn → Plan → Approve → Implement → Test locally → Review → Approve
 2. Wait for approval, then implement only the approved scope.
 3. Run the relevant checks (format, `go vet`, `go test`, typecheck, lint, build). Never claim a check passed without running it.
 4. Explain the code and decisions; show the diff.
-5. Propose Conventional Commit messages (in English) and commit only after approval.
+5. Commit with Conventional Commit messages (in English) as soon as a step is validated — no need to ask for approval of each commit (decided 2026-10-25). Report the commits in the summary.
 6. Stop. Do not start the next milestone without authorization.
 
 ### Git rules
