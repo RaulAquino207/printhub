@@ -1,0 +1,40 @@
+# https://moonrepo.dev/docs/config/project
+$schema: "../../.moon/cache/schemas/project.json"
+
+language: "go"
+layer: "application"
+
+fileGroups:
+  sources:
+    - "**/*.go"
+    - "go.mod"
+    - "go.sum"
+
+tasks:
+  # Long-running server with hot reload; never cached.
+  dev:
+    command: "go tool -modfile tools.mod air"
+    preset: "server"
+
+  build:
+    command: "go build -o bin/printhub-api ./cmd/printhub-api"
+    inputs:
+      - "@group(sources)"
+    outputs:
+      - "bin/printhub-api"
+
+  test:
+    command: "go test ./..."
+    inputs:
+      - "@group(sources)"
+
+  vet:
+    command: "go vet ./..."
+    inputs:
+      - "@group(sources)"
+
+  # Fails when any file is not gofmt-formatted (gofmt -l alone always exits 0).
+  format:
+    script: 'files=$(gofmt -l .); if [ -n "$files" ]; then echo "$files"; exit 1; fi'
+    inputs:
+      - "**/*.go"

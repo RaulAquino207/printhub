@@ -1,0 +1,21 @@
+# Hot reload for local development: `moon run api:dev` (runs `go tool -modfile tools.mod air`).
+# https://github.com/air-verse/air
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/printhub-api ./cmd/printhub-api"
+  entrypoint = ["./tmp/printhub-api"]
+  include_ext = ["go"]
+  exclude_dir = ["bin", "tmp"]
+  exclude_regex = ["_test\\.go$"]
+  delay = 500
+  # Send SIGINT (like Ctrl+C) so the server can shut down gracefully.
+  send_interrupt = true
+  kill_delay = "5s"
+
+[log]
+  main_only = true
+
+[misc]
+  clean_on_exit = true
