@@ -1,0 +1,40 @@
+# OS / editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Runtime data (SQLite databases, uploaded documents)
+data/
+uploads/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Go
+apps/api/bin/
+apps/api/tmp/
+*.test
+*.out
+coverage.*
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.pnpm-store/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+pnpm-debug.log*
+
+# moon
+.moon/cache/
+.moon/docker/
