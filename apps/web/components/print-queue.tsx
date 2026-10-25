@@ -123,6 +123,12 @@ function JobRow({ job, onChange }: { job: Job; onChange: () => void }) {
           <time dateTime={job.createdAt}>{formatWhen(job.createdAt)}</time>
           <span aria-hidden>·</span>
           {formatBytes(job.document.sizeBytes)}
+          {job.createdBy && (
+            <>
+              <span aria-hidden>·</span>
+              por {job.createdBy}
+            </>
+          )}
         </span>
         {job.status === "failed" && (
           <span className="text-sm text-destructive">

@@ -2,6 +2,7 @@ import Link from "next/link"
 
 import { ApiStatus } from "@/components/api-status"
 import { MainNav } from "@/components/main-nav"
+import { UserMenu } from "@/components/user-menu"
 
 export function SiteHeader() {
   return (
@@ -16,7 +17,10 @@ export function SiteHeader() {
           PrintHub
         </Link>
         <MainNav className="order-last w-full sm:order-none sm:w-auto" />
-        <ApiStatus className="ml-auto" />
+        <div className="ml-auto flex items-center gap-4">
+          <ApiStatus />
+          <UserMenu />
+        </div>
       </div>
     </header>
   )

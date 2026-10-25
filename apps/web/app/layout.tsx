@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 
 import "./globals.css"
+import { SessionGate, SessionProvider } from "@/components/session-provider"
 import { SiteHeader } from "@/components/site-header"
 import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
@@ -43,10 +44,12 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider defaultTheme="light" enableSystem={false}>
-          <SiteHeader />
-          <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-            {children}
-          </main>
+          <SessionProvider>
+            <SiteHeader />
+            <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+              <SessionGate>{children}</SessionGate>
+            </main>
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
+import { useSession } from "@/components/session-provider"
 import { cn } from "@/lib/utils"
 
 const items = [
@@ -12,6 +13,10 @@ const items = [
 
 export function MainNav({ className }: { className?: string }) {
   const pathname = usePathname()
+  const session = useSession()
+
+  // Nothing to navigate to before signing in.
+  if (session.status !== "authenticated") return null
 
   return (
     <nav aria-label="Principal" className={cn("-mb-px flex gap-6", className)}>

@@ -1,4 +1,9 @@
-import { API_URL, apiFetch } from "@/lib/api"
+import {
+  API_URL,
+  apiFetch,
+  CSRF_HEADER,
+  notifyUnauthenticated,
+} from "@/lib/api"
 import type { ColorMode, Orientation } from "@/lib/printers"
 
 // Mirrors the API contract of /api/v1/jobs.
@@ -28,6 +33,7 @@ export type Job = {
   document: { name: string; sizeBytes: number }
   options: PrintOptions
   failureReason?: string
+  createdBy: string
   createdAt: string
   updatedAt: string
   history: { status: JobStatus; at: string }[]
@@ -86,6 +92,9 @@ export function createJob(
     const xhr = new XMLHttpRequest()
     xhr.open("POST", `${API_URL}/api/v1/jobs`)
     xhr.withCredentials = true // same as fetch's credentials: "include"
+    for (const [name, value] of Object.entries(CSRF_HEADER)) {
+      xhr.setRequestHeader(name, value)
+    }
     xhr.responseType = "json"
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress?.(e.loaded / e.total)
@@ -95,6 +104,7 @@ export function createJob(
         resolve(xhr.response as Job)
         return
       }
+      if (xhr.status === 401) notifyUnauthenticated()
       const error = xhr.response?.error
       reject(
         new ApiError(xhr.status, error?.code ?? "unknown_error", error?.fields)
