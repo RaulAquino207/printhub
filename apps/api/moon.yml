@@ -33,6 +33,28 @@ tasks:
     inputs:
       - "@group(sources)"
 
+  # Tests that need the development CUPS container (see cups-up).
+  test-integration:
+    command: "go test -tags integration -count 1 ./internal/printing/cups/..."
+    options:
+      cache: false
+      runInCI: false
+
+  # Development CUPS server with virtual queues on http://localhost:6631.
+  cups-up:
+    command: "docker compose -f deploy/dev/compose.yml up -d --build"
+    options:
+      cache: false
+      runFromWorkspaceRoot: true
+      runInCI: false
+
+  cups-down:
+    command: "docker compose -f deploy/dev/compose.yml down"
+    options:
+      cache: false
+      runFromWorkspaceRoot: true
+      runInCI: false
+
   # Fails when any file is not gofmt-formatted (gofmt -l alone always exits 0).
   format:
     script: 'files=$(gofmt -l .); if [ -n "$files" ]; then echo "$files"; exit 1; fi'

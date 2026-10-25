@@ -1,0 +1,8 @@
+# Local development services. Start with: moon run api:cups-up
+services:
+  cups:
+    build: ./cups
+    container_name: printhub-dev-cups
+    ports:
+      # localhost only: the dev CUPS accepts anything from anyone.
+      - "127.0.0.1:6631:631"
