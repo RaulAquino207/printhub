@@ -34,6 +34,19 @@ moon setup
 
 How the pieces fit together: [docs/learning/infra/proto-and-moon.md](docs/learning/infra/proto-and-moon.md).
 
+## Running locally
+
+```bash
+moon run api:dev     # API with hot reload on http://localhost:8080
+curl localhost:8080/healthz
+
+moon run api:test api:vet api:format api:build
+```
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PRINTHUB_API_ADDR` | `localhost:8080` | Address the API listens on |
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)
