@@ -37,15 +37,16 @@ How the pieces fit together: [docs/learning/infra/proto-and-moon.md](docs/learni
 ## Running locally
 
 ```bash
-moon run api:dev     # API with hot reload on http://localhost:8080
+moon run api:dev web:dev   # API on http://localhost:8080, web on http://localhost:3000 (both hot reload)
 curl localhost:8080/healthz
 
-moon run api:test api:vet api:format api:build
+moon run :test :vet :typecheck :lint :format :build   # every check of every project
 ```
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `PRINTHUB_API_ADDR` | `localhost:8080` | Address the API listens on |
+| `NEXT_PUBLIC_API_URL` (web) | `http://localhost:8080` | API base URL used by the browser; inlined at build time |
 | `PRINTHUB_CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed to call the API with credentials; `*` is rejected ([ADR 0003](docs/adr/0003-subdomain-routing-and-cors.md)) |
 
 ## Documentation
