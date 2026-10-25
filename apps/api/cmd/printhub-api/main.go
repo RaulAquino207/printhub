@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
 	"strings"
 	"syscall"
@@ -17,6 +18,7 @@ import (
 	"github.com/RaulAquino207/printhub/apps/api/internal/httpapi"
 	"github.com/RaulAquino207/printhub/apps/api/internal/printer"
 	"github.com/RaulAquino207/printhub/apps/api/internal/printing/mock"
+	"github.com/RaulAquino207/printhub/apps/api/internal/store"
 )
 
 // shutdownTimeout bounds how long in-flight requests may take to finish on shutdown.
@@ -28,6 +30,9 @@ type config struct {
 	addr string
 	// corsOrigins are the browser origins allowed to call the API (ADR 0003).
 	corsOrigins []string
+	// dataDir holds the SQLite database. Keep it outside any web root and,
+	// in containers, on a persistent volume.
+	dataDir string
 }
 
 func loadConfig() (config, error) {
@@ -39,6 +44,7 @@ func loadConfig() (config, error) {
 	return config{
 		addr:        envOr("PRINTHUB_API_ADDR", "localhost:8080"),
 		corsOrigins: origins,
+		dataDir:     envOr("PRINTHUB_DATA_DIR", "data"),
 	}, nil
 }
 
@@ -78,6 +84,28 @@ func run(logger *slog.Logger) error {
 	// ctx is cancelled on Ctrl+C (SIGINT) or SIGTERM (sent by Docker, air, systemd).
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// 0o700: only the user running the API can read the database.
+	if err := os.MkdirAll(cfg.dataDir, 0o700); err != nil {
+		return fmt.Errorf("data dir: %w", err)
+	}
+	dbPath := filepath.Join(cfg.dataDir, "printhub.db")
+	db, err := store.Open(ctx, dbPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	logger.Info("database ready", "path", dbPath)
+
+	// Jobs interrupted by the last shutdown or crash. The worker (milestone 8)
+	// will reconcile them; for now they are only reported.
+	unfinished, err := db.ListUnfinished(ctx)
+	if err != nil {
+		return err
+	}
+	if len(unfinished) > 0 {
+		logger.Warn("unfinished jobs found; they will be reconciled once the worker exists", "count", len(unfinished))
+	}
 
 	// Only simulated printers exist until the CUPS provider is implemented.
 	printerConfigs, provider := mock.Demo()
