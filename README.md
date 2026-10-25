@@ -80,7 +80,7 @@ The virtual queues print to `/dev/null`. See [docs/learning/infra/ipp-and-cups.m
 
 - [Architecture](docs/architecture.md)
 - [Roadmap](docs/roadmap.md)
-- [Hardware](docs/hardware.md)
+- [Hardware](docs/hardware.md) and the [Raspberry Pi print bridge runbook](docs/runbooks/raspberry-pi-print-bridge.md)
 - [Architecture Decision Records](docs/adr/)
 - [Design system](DESIGN_SYSTEM_MINIMAL_MODERN.md)
 - [Agent instructions](AGENTS.md)

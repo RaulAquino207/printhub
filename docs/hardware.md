@@ -57,6 +57,8 @@ Keep the Pi next to the printers in every option:
 
 ## Validation checklist (milestone 13)
 
+The step-by-step setup and a results table live in the runbook: [raspberry-pi-print-bridge.md](runbooks/raspberry-pi-print-bridge.md).
+
 - [ ] Identify exact printer models and USB IDs
 - [ ] Both printers enumerate through the hub (`lsusb`)
 - [ ] Drivers installed from Raspbian packages or built on the Pi

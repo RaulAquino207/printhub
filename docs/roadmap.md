@@ -4,7 +4,7 @@ Small milestones, each reviewed and tested locally before it is committed. Workf
 
 Commit messages below are suggestions; the actual history is in `git log`.
 
-**Progress:** milestones 0–12 done (2026-10-25). Next: milestone 13 (needs the Raspberry Pi).
+**Progress:** milestones 0–12 done (2026-10-25). Milestone 13 is prepared ([runbook](runbooks/raspberry-pi-print-bridge.md)) and waits for the Raspberry Pi: its validation needs the physical hardware.
 
 ## Phase 1 — Local development
 
