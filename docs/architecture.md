@@ -43,29 +43,41 @@ The web and the API are separate applications in one monorepo. They are develope
 
 The contract is versioned JSON under `/api/v1`. The web adapts the options it shows to the capabilities it receives and never branches on printer model names.
 
-## Domain model (initial)
+## Domain model
 
 - **Printer** — `ID`, `Name`, `Model`, `Destination` (provider-specific queue or URI), `Status` (online / offline / unknown). Has many jobs.
 - **Capabilities** — color, paper sizes, duplex, max copies, page ranges, orientations. Reported by the provider, not hardcoded.
-- **PrintOptions** — what the user chose; validated against the printer's capabilities.
-- **PrintJob** — `ID`, `PrinterID`, document metadata, options, status, provider job ID, error details, timestamps per transition.
+- **Options** — what the user chose; validated against the printer's capabilities.
+- **Job** — `ID`, `PrinterID`, document metadata, options, status, provider job ID, failure reason, history of status transitions.
 
-## Job lifecycle (proposed)
+## Job lifecycle
+
+Implemented in `apps/api/internal/job` (pure logic, no persistence yet). Status values are lowercase in code and JSON.
 
 ```text
-QUEUED → PROCESSING → SUBMITTED → PRINTING → COMPLETED
-  │           │            │           │
-  └───────────┴────────────┴───────────┴──→ FAILED
-QUEUED, SUBMITTED, PRINTING ──cancel──→ CANCELLED
+queued → processing → submitted → printing → completed
+                          └──────────────────→ completed   (short jobs may finish unobserved)
+any non-terminal status ──→ failed
+queued, submitted, printing ──cancel──→ cancelled
 ```
 
-- `PROCESSING`: validating the document and sending it to the provider.
-- `SUBMITTED`: the provider accepted the job and returned its own job ID.
-- `PRINTING`: the provider reports the job as processing.
-- `COMPLETED`: the provider reports the job as finished. **This does not prove that paper came out**; the UI says "Enviado à impressora".
-- Jobs persist; on startup the worker reconciles every non-terminal job with the provider.
+| Status | Meaning |
+|---|---|
+| `queued` | Accepted by PrintHub, waiting for the worker |
+| `processing` | The worker is validating the document and sending it to the provider. **Cannot be cancelled**: the outcome is submitted or failed |
+| `submitted` | The provider accepted the job and returned its own job ID |
+| `printing` | The provider reports the job as being processed |
+| `completed` | The provider reports the job as finished. **This does not prove that paper came out**; the UI says "Enviado à impressora" |
+| `failed` | Terminal, with a failure reason |
+| `cancelled` | Terminal |
 
-The exact transitions are finalized and tested in the job lifecycle milestone.
+- Every status change goes through one method that validates first; a rejected change returns `*job.TransitionError` (matches `job.ErrInvalidTransition`) and leaves the job untouched.
+- Each job keeps a history of `(status, time)` entries; creation and last update times are derived from it.
+- Jobs will persist (milestone 6); on startup the worker reconciles every non-terminal job with the provider (milestone 8).
+
+## Print options
+
+Implemented in `apps/api/internal/printer/options.go`: copies, color mode, paper size, orientation, duplex and page ranges (e.g. `1-3, 5`), validated against the printer's capabilities. Validation reports every invalid field with a stable reason code: `unsupported`, `out_of_range`, `invalid_format`, `capabilities_unknown`.
 
 ## API (initial)
 
