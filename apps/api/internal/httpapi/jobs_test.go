@@ -109,13 +109,15 @@ func newUploadEnv(t *testing.T) *uploadEnv {
 	}
 	jobs := &fakeJobStore{jobs: map[job.ID]*job.Job{}}
 	worker := &fakeWorker{}
-	router := NewRouter(Dependencies{
-		Logger:    slog.New(slog.DiscardHandler),
-		Printers:  fakeDirectory{printers: uploadPrinters},
-		Jobs:      jobs,
-		Documents: docs,
-		Worker:    worker,
-	})
+	router := signedIn(NewRouter(Dependencies{
+		Logger:      slog.New(slog.DiscardHandler),
+		CORSOrigins: []string{testOrigin},
+		Printers:    fakeDirectory{printers: uploadPrinters},
+		Jobs:        jobs,
+		Documents:   docs,
+		Worker:      worker,
+		Auth:        fakeAuth{},
+	}))
 	return &uploadEnv{router: router, jobs: jobs, worker: worker, docsDir: docsDir}
 }
 
@@ -216,6 +218,9 @@ func TestCreateJob(t *testing.T) {
 	}
 	if _, err := env.jobs.GetJob(context.Background(), job.ID(resp.ID)); err != nil {
 		t.Errorf("job not saved: %v", err)
+	}
+	if resp.CreatedBy != "raul" {
+		t.Errorf("createdBy = %q, want the signed-in user", resp.CreatedBy)
 	}
 	if env.worker.notified != 1 {
 		t.Errorf("worker notified %d times, want 1", env.worker.notified)

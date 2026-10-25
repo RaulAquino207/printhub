@@ -34,10 +34,12 @@ func (f fakeDirectory) Get(_ context.Context, id printer.ID) (printer.Printer, e
 }
 
 func newTestRouter(dir PrinterDirectory) http.Handler {
-	return NewRouter(Dependencies{
-		Logger:   slog.New(slog.DiscardHandler),
-		Printers: dir,
-	})
+	return signedIn(NewRouter(Dependencies{
+		Logger:      slog.New(slog.DiscardHandler),
+		CORSOrigins: []string{testOrigin},
+		Printers:    dir,
+		Auth:        fakeAuth{},
+	}))
 }
 
 func serve(t *testing.T, h http.Handler, path string) *httptest.ResponseRecorder {

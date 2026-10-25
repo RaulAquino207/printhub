@@ -198,6 +198,9 @@ func (s *server) createJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	j := job.New(id, job.SnapshotOf(p), doc, opts, time.Now())
+	if user, ok := userFrom(r.Context()); ok {
+		j.CreatedBy = user.Username
+	}
 	if err := s.jobs.SaveJob(r.Context(), j); err != nil {
 		s.logger.Error("save job", "job_id", id, "error", err)
 		writeError(w, http.StatusInternalServerError, "internal_error", "could not create the job")
@@ -363,6 +366,7 @@ type jobResponse struct {
 	Options       optionsRequest       `json:"options"`
 	ProviderJobID string               `json:"providerJobId,omitempty"`
 	FailureReason string               `json:"failureReason,omitempty"`
+	CreatedBy     string               `json:"createdBy"`
 	CreatedAt     time.Time            `json:"createdAt"`
 	UpdatedAt     time.Time            `json:"updatedAt"`
 	History       []transitionResponse `json:"history"`
@@ -406,6 +410,7 @@ func toJobResponse(j *job.Job) jobResponse {
 		Options:       optionsRequest(j.Options),
 		ProviderJobID: j.ProviderJobID,
 		FailureReason: j.FailureReason,
+		CreatedBy:     j.CreatedBy,
 		CreatedAt:     j.CreatedAt().UTC(),
 		UpdatedAt:     j.UpdatedAt().UTC(),
 		History:       history,

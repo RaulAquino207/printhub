@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/RaulAquino207/printhub/apps/api/internal/auth"
 	"github.com/RaulAquino207/printhub/apps/api/internal/document"
 	"github.com/RaulAquino207/printhub/apps/api/internal/httpapi"
 	"github.com/RaulAquino207/printhub/apps/api/internal/printer"
@@ -43,6 +44,9 @@ type config struct {
 	dataDir string
 	// maxUploadBytes is the largest PDF accepted.
 	maxUploadBytes int64
+	// cookieSecure sends the session cookie over HTTPS only. Off by default
+	// for http://localhost; must be on in production.
+	cookieSecure bool
 }
 
 func loadConfig() (config, error) {
@@ -61,6 +65,7 @@ func loadConfig() (config, error) {
 		corsOrigins:    origins,
 		dataDir:        envOr("PRINTHUB_DATA_DIR", "data"),
 		maxUploadBytes: int64(maxUploadMB) << 20,
+		cookieSecure:   os.Getenv("PRINTHUB_COOKIE_SECURE") == "true",
 	}, nil
 }
 
@@ -83,6 +88,14 @@ func envOr(key, fallback string) string {
 }
 
 func main() {
+	if len(os.Args) > 1 {
+		if err := runCommand(os.Args[1:], os.Stdin, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	if err := run(logger); err != nil {
@@ -112,6 +125,13 @@ func run(logger *slog.Logger) error {
 	}
 	defer db.Close()
 	logger.Info("database ready", "path", dbPath)
+
+	sessions := auth.NewService(db)
+	if n, err := sessions.DeleteExpiredSessions(ctx); err != nil {
+		return err
+	} else if n > 0 {
+		logger.Info("removed expired sessions", "count", n)
+	}
 
 	documents, err := document.NewStorage(filepath.Join(cfg.dataDir, "documents"), cfg.maxUploadBytes)
 	if err != nil {
@@ -167,6 +187,9 @@ func run(logger *slog.Logger) error {
 			Jobs:        db,
 			Documents:   documents,
 			Worker:      jobs,
+			Auth:        sessions,
+
+			CookieSecure: cfg.cookieSecure,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,

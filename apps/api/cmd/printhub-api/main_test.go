@@ -2,6 +2,7 @@ package main
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -52,5 +53,27 @@ func TestLoadConfigMaxUpload(t *testing.T) {
 		if _, err := loadConfig(); err == nil {
 			t.Errorf("PRINTHUB_MAX_UPLOAD_MB=%q: want an error", bad)
 		}
+	}
+}
+
+func TestUserAddCommand(t *testing.T) {
+	t.Setenv("PRINTHUB_DATA_DIR", t.TempDir())
+	var out strings.Builder
+
+	if err := runCommand([]string{"user", "add", "raul"}, strings.NewReader("correct horse\n"), &out); err != nil {
+		t.Fatalf("user add: %v", err)
+	}
+	if !strings.Contains(out.String(), `user "raul" created`) {
+		t.Errorf("output = %q", out.String())
+	}
+
+	if err := runCommand([]string{"user", "add", "raul"}, strings.NewReader("another one\n"), &out); err == nil {
+		t.Error("adding the same user twice succeeded")
+	}
+	if err := runCommand([]string{"user", "add", "ana"}, strings.NewReader("short\n"), &out); err == nil {
+		t.Error("a too-short password was accepted")
+	}
+	if err := runCommand([]string{"nope"}, strings.NewReader(""), &out); err == nil || !strings.Contains(err.Error(), "usage") {
+		t.Errorf("unknown command err = %v, want the usage text", err)
 	}
 }

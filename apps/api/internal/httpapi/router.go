@@ -20,16 +20,22 @@ type Dependencies struct {
 	Jobs        JobStore
 	Documents   DocumentStore
 	Worker      JobRunner
+	Auth        Authenticator
+	// CookieSecure marks the session cookie HTTPS-only. Enable it whenever
+	// the API is served over HTTPS (always, outside local development).
+	CookieSecure bool
 }
 
 // server holds the dependencies shared by handlers. Handlers that need them
 // are methods on *server.
 type server struct {
-	logger    *slog.Logger
-	printers  PrinterDirectory
-	jobs      JobStore
-	documents DocumentStore
-	worker    JobRunner
+	logger       *slog.Logger
+	printers     PrinterDirectory
+	jobs         JobStore
+	documents    DocumentStore
+	worker       JobRunner
+	auth         Authenticator
+	cookieSecure bool
 }
 
 // NewRouter returns the root HTTP handler of the API.
@@ -40,6 +46,9 @@ func NewRouter(deps Dependencies) http.Handler {
 		jobs:      deps.Jobs,
 		documents: deps.Documents,
 		worker:    deps.Worker,
+		auth:      deps.Auth,
+
+		cookieSecure: deps.CookieSecure,
 	}
 
 	r := chi.NewRouter()
@@ -52,12 +61,24 @@ func NewRouter(deps Dependencies) http.Handler {
 	r.Get("/healthz", handleHealth)
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Get("/printers", s.listPrinters)
-		r.Get("/printers/{id}", s.getPrinter)
-		r.Get("/jobs", s.listJobs)
-		r.Post("/jobs", s.createJob)
-		r.Get("/jobs/{id}", s.getJob)
-		r.Post("/jobs/{id}/cancel", s.cancelJob)
+		r.Use(checkCSRF(deps.CORSOrigins))
+
+		r.Post("/auth/login", s.login)
+
+		// Everything else requires a session.
+		r.Group(func(r chi.Router) {
+			r.Use(s.requireUser)
+
+			r.Post("/auth/logout", s.logout)
+			r.Get("/auth/me", s.me)
+
+			r.Get("/printers", s.listPrinters)
+			r.Get("/printers/{id}", s.getPrinter)
+			r.Get("/jobs", s.listJobs)
+			r.Post("/jobs", s.createJob)
+			r.Get("/jobs/{id}", s.getJob)
+			r.Post("/jobs/{id}/cancel", s.cancelJob)
+		})
 	})
 
 	return r
