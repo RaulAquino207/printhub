@@ -77,3 +77,23 @@ func TestUserAddCommand(t *testing.T) {
 		t.Errorf("unknown command err = %v, want the usage text", err)
 	}
 }
+
+func TestLoadConfigProvider(t *testing.T) {
+	tests := []struct {
+		provider, url string
+		wantErr       bool
+	}{
+		{provider: "", url: ""},
+		{provider: "mock", url: ""},
+		{provider: "cups", url: "http://localhost:6631"},
+		{provider: "cups", url: "", wantErr: true},
+		{provider: "lpr", url: "", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Setenv("PRINTHUB_PRINTING_PROVIDER", tt.provider)
+		t.Setenv("PRINTHUB_CUPS_URL", tt.url)
+		if _, err := loadConfig(); (err != nil) != tt.wantErr {
+			t.Errorf("provider=%q url=%q: err = %v, wantErr %v", tt.provider, tt.url, err, tt.wantErr)
+		}
+	}
+}

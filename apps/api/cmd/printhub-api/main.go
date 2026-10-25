@@ -21,6 +21,7 @@ import (
 	"github.com/RaulAquino207/printhub/apps/api/internal/document"
 	"github.com/RaulAquino207/printhub/apps/api/internal/httpapi"
 	"github.com/RaulAquino207/printhub/apps/api/internal/printer"
+	"github.com/RaulAquino207/printhub/apps/api/internal/printing/cups"
 	"github.com/RaulAquino207/printhub/apps/api/internal/printing/mock"
 	"github.com/RaulAquino207/printhub/apps/api/internal/store"
 	"github.com/RaulAquino207/printhub/apps/api/internal/worker"
@@ -47,6 +48,13 @@ type config struct {
 	// cookieSecure sends the session cookie over HTTPS only. Off by default
 	// for http://localhost; must be on in production.
 	cookieSecure bool
+	// provider is "mock" (simulated printers, the default) or "cups".
+	provider string
+	// cupsURL is the CUPS server, e.g. http://print-bridge:631.
+	cupsURL string
+	// cupsSimulated marks every CUPS printer as simulated, e.g. the dev
+	// container whose queues print to /dev/null.
+	cupsSimulated bool
 }
 
 func loadConfig() (config, error) {
@@ -60,12 +68,24 @@ func loadConfig() (config, error) {
 		return config{}, fmt.Errorf("PRINTHUB_MAX_UPLOAD_MB must be a positive integer, got %q", os.Getenv("PRINTHUB_MAX_UPLOAD_MB"))
 	}
 
+	provider := envOr("PRINTHUB_PRINTING_PROVIDER", "mock")
+	cupsURL := os.Getenv("PRINTHUB_CUPS_URL")
+	switch {
+	case provider != "mock" && provider != "cups":
+		return config{}, fmt.Errorf("PRINTHUB_PRINTING_PROVIDER must be mock or cups, got %q", provider)
+	case provider == "cups" && cupsURL == "":
+		return config{}, errors.New("PRINTHUB_CUPS_URL is required with PRINTHUB_PRINTING_PROVIDER=cups")
+	}
+
 	return config{
 		addr:           envOr("PRINTHUB_API_ADDR", "localhost:8080"),
 		corsOrigins:    origins,
 		dataDir:        envOr("PRINTHUB_DATA_DIR", "data"),
 		maxUploadBytes: int64(maxUploadMB) << 20,
 		cookieSecure:   os.Getenv("PRINTHUB_COOKIE_SECURE") == "true",
+		provider:       provider,
+		cupsURL:        cupsURL,
+		cupsSimulated:  os.Getenv("PRINTHUB_CUPS_SIMULATED") == "true",
 	}, nil
 }
 
@@ -78,6 +98,31 @@ func splitList(s string) []string {
 		}
 	}
 	return items
+}
+
+// printingProvider is everything the API needs from a provider. Composing
+// the two consumers' interfaces states that one value must satisfy both.
+type printingProvider interface {
+	printer.Provider
+	worker.Provider
+}
+
+// newProvider returns the configured provider and its printers. With CUPS,
+// the printers are the server's queues, discovered once at startup.
+func newProvider(ctx context.Context, cfg config) ([]printer.Config, printingProvider, error) {
+	if cfg.provider == "mock" {
+		configs, p := mock.Demo()
+		return configs, p, nil
+	}
+	p, err := cups.New(cups.Options{URL: cfg.cupsURL, Simulated: cfg.cupsSimulated})
+	if err != nil {
+		return nil, nil, err
+	}
+	configs, err := p.Configs(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("discover CUPS printers at %s: %w", cfg.cupsURL, err)
+	}
+	return configs, p, nil
 }
 
 func envOr(key, fallback string) string {
@@ -138,8 +183,11 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	// Only simulated printers exist until the CUPS provider is implemented.
-	printerConfigs, provider := mock.Demo()
+	printerConfigs, provider, err := newProvider(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	logger.Info("printing provider ready", "provider", cfg.provider, "printers", len(printerConfigs))
 	printers := printer.NewRegistry(printerConfigs, provider)
 
 	jobs := worker.New(worker.Config{
