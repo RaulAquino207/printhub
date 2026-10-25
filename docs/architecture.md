@@ -22,7 +22,7 @@ The web and the API are separate applications in one monorepo. They are develope
 
 | Component | Location | Responsibility | Status |
 |---|---|---|---|
-| Web | `apps/web` | Next.js App Router UI in pt-BR: new print job, print queue | Implemented: shell, API status, new print job flow (upload, options, live status, cancel). Planned: print queue |
+| Web | `apps/web` | Next.js App Router UI in pt-BR: new print job, print queue | Implemented: shell, API status, new print job flow (upload, options, live status, cancel), print queue |
 | API | `apps/api` | Go + Chi HTTP API: printers, capabilities, uploads, jobs, auth | Implemented: health, CORS, printers |
 | Database | SQLite file owned by the API (`PRINTHUB_DATA_DIR/printhub.db`) | Jobs and their history; later users and sessions. Printers stay in configuration for now | Implemented: jobs |
 | Job worker | `apps/api/internal/worker`, one goroutine in the API process | Moves jobs through their lifecycle, talks to the provider, recovers interrupted jobs, removes finished documents | Implemented |
@@ -89,7 +89,7 @@ Implemented in `apps/api/internal/printer/options.go`: copies, color mode, paper
 | GET | `/api/v1/printers` | Printers with status and capabilities — **Implemented** (Simulated data) |
 | GET | `/api/v1/printers/{id}` | One printer — **Implemented** (Simulated data) |
 | POST | `/api/v1/jobs` | Multipart: `printerId`, `options` (JSON), `file` (PDF) → `201` queued job, processed in the background — **Implemented** |
-| GET | `/api/v1/jobs` | List jobs (filters: `printerId`, `status`) |
+| GET | `/api/v1/jobs` | List jobs, newest first: `?status=queued,printing` (comma-separated) and `?limit=` (default 50, max 200) — **Implemented** |
 | GET | `/api/v1/jobs/{id}` | Job details, status and history — **Implemented** |
 | POST | `/api/v1/jobs/{id}/cancel` | Cancel a job → `200`, `404`, or `409 job_not_cancellable` — **Implemented** |
 
