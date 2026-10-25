@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/RaulAquino207/printhub/apps/api/internal/printer"
+	"github.com/RaulAquino207/printhub/apps/api/internal/printing"
 )
 
 // Compile-time check: *Provider must satisfy printer.Provider. If a method is
@@ -63,8 +66,110 @@ func TestDemoIDsAreStable(t *testing.T) {
 		ids = append(ids, cfg.ID)
 	}
 
-	want := []printer.ID{"mono-laser", "color-laser", "inkjet"}
+	want := []printer.ID{"mono-laser", "color-laser", "inkjet", "faulty-laser"}
 	if !slices.Equal(ids, want) {
 		t.Errorf("demo printer IDs = %v, want %v", ids, want)
+	}
+}
+
+// fakeClock is a clock tests move forward by hand.
+type fakeClock struct{ t time.Time }
+
+func (c *fakeClock) now() time.Time          { return c.t }
+func (c *fakeClock) advance(d time.Duration) { c.t = c.t.Add(d) }
+
+func newJobProvider(t *testing.T) (*Provider, *fakeClock) {
+	t.Helper()
+	clock := &fakeClock{t: time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)}
+	p := New(
+		Printer{Destination: "ok", Status: printer.StatusOnline},
+		Printer{Destination: "jam", Status: printer.StatusOnline, FailJobs: true},
+		Printer{Destination: "off", Status: printer.StatusOffline},
+	)
+	p.SetClock(clock.now)
+	p.SetTiming(Timing{Queue: time.Second, Print: 2 * time.Second})
+	return p, clock
+}
+
+func submit(t *testing.T, p *Provider, dest string) string {
+	t.Helper()
+	id, err := p.Submit(context.Background(), dest, strings.NewReader("%PDF-1.7"), printer.Options{})
+	if err != nil {
+		t.Fatalf("Submit(%s): %v", dest, err)
+	}
+	return id
+}
+
+func stateOf(t *testing.T, p *Provider, id string) printing.JobState {
+	t.Helper()
+	st, err := p.JobStatus(context.Background(), id)
+	if err != nil {
+		t.Fatalf("JobStatus(%s): %v", id, err)
+	}
+	return st.State
+}
+
+func TestJobTimeline(t *testing.T) {
+	p, clock := newJobProvider(t)
+	id := submit(t, p, "ok")
+
+	steps := []struct {
+		after time.Duration
+		want  printing.JobState
+	}{
+		{0, printing.JobPending},
+		{time.Second, printing.JobProcessing},
+		{2 * time.Second, printing.JobCompleted},
+	}
+	for _, s := range steps {
+		clock.advance(s.after)
+		if got := stateOf(t, p, id); got != s.want {
+			t.Errorf("after +%v: state = %s, want %s", s.after, got, s.want)
+		}
+	}
+}
+
+func TestFailingPrinter(t *testing.T) {
+	p, clock := newJobProvider(t)
+	id := submit(t, p, "jam")
+
+	clock.advance(time.Second)
+	st, err := p.JobStatus(context.Background(), id)
+	if err != nil || st.State != printing.JobFailed || st.Message == "" {
+		t.Errorf("status = %+v, %v; want failed with a message", st, err)
+	}
+}
+
+func TestSubmitToOfflinePrinter(t *testing.T) {
+	p, _ := newJobProvider(t)
+	_, err := p.Submit(context.Background(), "off", strings.NewReader(""), printer.Options{})
+	if !errors.Is(err, printing.ErrPrinterUnavailable) {
+		t.Errorf("err = %v, want ErrPrinterUnavailable", err)
+	}
+}
+
+func TestCancel(t *testing.T) {
+	p, clock := newJobProvider(t)
+	ctx := context.Background()
+
+	pending := submit(t, p, "ok")
+	if err := p.Cancel(ctx, pending); err != nil {
+		t.Fatalf("Cancel: %v", err)
+	}
+	if got := stateOf(t, p, pending); got != printing.JobCancelled {
+		t.Errorf("state = %s, want cancelled", got)
+	}
+
+	done := submit(t, p, "ok")
+	clock.advance(time.Hour)
+	if err := p.Cancel(ctx, done); !errors.Is(err, printing.ErrJobFinished) {
+		t.Errorf("Cancel finished job: err = %v, want ErrJobFinished", err)
+	}
+
+	if err := p.Cancel(ctx, "mock-999"); !errors.Is(err, printing.ErrUnknownJob) {
+		t.Errorf("Cancel unknown job: err = %v, want ErrUnknownJob", err)
+	}
+	if _, err := p.JobStatus(ctx, "mock-999"); !errors.Is(err, printing.ErrUnknownJob) {
+		t.Errorf("JobStatus unknown job: err = %v, want ErrUnknownJob", err)
 	}
 }
