@@ -51,6 +51,12 @@ var transitions = map[Status][]Status{
 	StatusPrinting:   {StatusCompleted, StatusFailed, StatusCancelled},
 }
 
+// UnfinishedStatuses lists the non-terminal statuses in lifecycle order: the
+// jobs in these statuses still need work after a restart.
+func UnfinishedStatuses() []Status {
+	return []Status{StatusQueued, StatusProcessing, StatusSubmitted, StatusPrinting}
+}
+
 // Terminal reports whether no further transition is possible.
 func (s Status) Terminal() bool {
 	_, ok := transitions[s]
@@ -76,6 +82,21 @@ func (e *TransitionError) Unwrap() error {
 	return ErrInvalidTransition
 }
 
+// PrinterSnapshot is the printer as it was when the job was created. Jobs keep
+// it so their history stays meaningful even if the printer is later renamed,
+// reconfigured or removed.
+type PrinterSnapshot struct {
+	ID        printer.ID
+	Name      string
+	Model     string
+	Simulated bool
+}
+
+// SnapshotOf captures the fields of p that a job keeps.
+func SnapshotOf(p printer.Printer) PrinterSnapshot {
+	return PrinterSnapshot{ID: p.ID, Name: p.Name, Model: p.Model, Simulated: p.Simulated}
+}
+
 // Document is the metadata of the uploaded file. The file itself is stored
 // elsewhere.
 type Document struct {
@@ -91,11 +112,11 @@ type Transition struct {
 
 // Job is a print job and its history.
 type Job struct {
-	ID        ID
-	PrinterID printer.ID
-	Document  Document
-	Options   printer.Options
-	Status    Status
+	ID       ID
+	Printer  PrinterSnapshot
+	Document Document
+	Options  printer.Options
+	Status   Status
 	// ProviderJobID is the job ID assigned by the printing provider (e.g. the
 	// CUPS job ID), known from StatusSubmitted on.
 	ProviderJobID string
@@ -108,14 +129,14 @@ type Job struct {
 
 // New returns a queued job. now is passed in instead of read from the clock,
 // which keeps the lifecycle deterministic and easy to test.
-func New(id ID, printerID printer.ID, doc Document, opts printer.Options, now time.Time) *Job {
+func New(id ID, p PrinterSnapshot, doc Document, opts printer.Options, now time.Time) *Job {
 	return &Job{
-		ID:        id,
-		PrinterID: printerID,
-		Document:  doc,
-		Options:   opts,
-		Status:    StatusQueued,
-		History:   []Transition{{Status: StatusQueued, At: now}},
+		ID:       id,
+		Printer:  p,
+		Document: doc,
+		Options:  opts,
+		Status:   StatusQueued,
+		History:  []Transition{{Status: StatusQueued, At: now}},
 	}
 }
 

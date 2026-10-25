@@ -2,6 +2,7 @@ package job
 
 import (
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -50,8 +51,18 @@ func TestTerminal(t *testing.T) {
 	}
 }
 
+func TestUnfinishedStatuses(t *testing.T) {
+	unfinished := UnfinishedStatuses()
+	for _, s := range allStatuses {
+		if got, want := slices.Contains(unfinished, s), !s.Terminal(); got != want {
+			t.Errorf("%s in UnfinishedStatuses() = %v, want %v", s, got, want)
+		}
+	}
+}
+
 func newTestJob(t0 time.Time) *Job {
-	return New("job-1", "mono-laser", Document{Name: "a.pdf", SizeBytes: 1024}, printer.Options{Copies: 1}, t0)
+	p := PrinterSnapshot{ID: "mono-laser", Name: "Laser P&B", Model: "Simulated monochrome laser", Simulated: true}
+	return New("job-1", p, Document{Name: "a.pdf", SizeBytes: 1024}, printer.Options{Copies: 1}, t0)
 }
 
 func TestHappyPath(t *testing.T) {
@@ -151,5 +162,16 @@ func TestMarkSubmittedRejectedKeepsProviderJobID(t *testing.T) {
 	}
 	if j.ProviderJobID != "" {
 		t.Errorf("ProviderJobID = %q, want empty after a rejected transition", j.ProviderJobID)
+	}
+}
+
+func TestSnapshotOf(t *testing.T) {
+	p := printer.Printer{Config: printer.Config{ID: "x", Name: "X", Model: "M", Destination: "q", Simulated: true}}
+
+	got := SnapshotOf(p)
+
+	want := PrinterSnapshot{ID: "x", Name: "X", Model: "M", Simulated: true}
+	if got != want {
+		t.Errorf("SnapshotOf() = %+v, want %+v", got, want)
 	}
 }
