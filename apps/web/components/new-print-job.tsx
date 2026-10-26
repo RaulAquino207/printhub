@@ -7,7 +7,10 @@ import { DocumentPicker } from "@/components/document-picker"
 import { DocumentPreview } from "@/components/document-preview"
 import { JobStatusPanel } from "@/components/job-status"
 import {
+  colorModeLabels,
   defaultOptions,
+  orientationLabels,
+  paperSizeLabels,
   PrintOptionsForm,
 } from "@/components/print-options-form"
 import { PrinterPicker } from "@/components/printer-picker"
@@ -22,7 +25,7 @@ import {
   type Job,
   type PrintOptions,
 } from "@/lib/jobs"
-import { documentKind } from "@/lib/documents"
+import { documentKind, type DocumentKind } from "@/lib/documents"
 import { imageToPdf } from "@/lib/image-to-pdf"
 import { fieldMessage, formatBytes } from "@/lib/messages"
 import { exceedsPageCount, parsePageRanges } from "@/lib/page-ranges"
@@ -69,6 +72,22 @@ function validate(
     }
   }
   return errors
+}
+
+/** One line with the chosen options, shown next to the submit action. */
+function summarize(options: PrintOptions, kind: DocumentKind | null) {
+  return [
+    options.copies === 1 ? "1 cópia" : `${options.copies} cópias`,
+    colorModeLabels[options.colorMode],
+    paperSizeLabels[options.paperSize] ?? options.paperSize,
+    orientationLabels[options.orientation],
+    options.duplex ? "Frente e verso" : null,
+    kind !== "image" && options.pageRanges
+      ? `Páginas ${options.pageRanges}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ")
 }
 
 /**
@@ -187,11 +206,15 @@ export function NewPrintJob() {
     <form
       onSubmit={submit}
       noValidate
-      className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start"
+      // Desktop: document, options and preview in the main column; printers
+      // and the submit action in a side panel that follows the scroll.
+      // Mobile: one column (document, printers, options, preview) with the
+      // submit action in a bar fixed to the bottom of the screen.
+      className="grid gap-8 pb-32 lg:grid-cols-[minmax(0,1fr)_24rem] lg:grid-rows-[auto_auto_1fr] lg:pb-0"
     >
       <section
         aria-labelledby="document-heading"
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-3 lg:col-start-1 lg:row-start-1"
       >
         <h2 id="document-heading" className="text-lg font-semibold">
           Documento
@@ -207,7 +230,72 @@ export function NewPrintJob() {
           error={errors.file}
           disabled={submitting}
         />
-        {file && kind && effectiveOptions && (
+      </section>
+
+      <aside className="flex flex-col gap-6 lg:sticky lg:top-6 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:self-start lg:rounded-xl lg:border lg:bg-card lg:p-6">
+        <PrinterPicker
+          printers={printers}
+          value={printerId}
+          onValueChange={choosePrinter}
+          error={errors.printerId}
+        />
+
+        <div className="fixed inset-x-0 bottom-0 z-10 flex flex-col gap-3 border-t bg-background px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:static lg:border-0 lg:bg-transparent lg:p-0">
+          {printer && effectiveOptions && (
+            <p className="text-sm text-muted-foreground">
+              {summarize(effectiveOptions, kind)}
+            </p>
+          )}
+
+          {formError && (
+            <Alert variant="destructive">
+              <CircleAlert aria-hidden />
+              <AlertTitle>{formError}</AlertTitle>
+            </Alert>
+          )}
+
+          {progress !== null && (
+            <Progress value={Math.round(progress * 100)}>
+              <ProgressLabel>Enviando documento…</ProgressLabel>
+            </Progress>
+          )}
+
+          <Button
+            type="submit"
+            size="lg"
+            className="h-11 w-full"
+            disabled={submitting || printers.status !== "success"}
+          >
+            {converting
+              ? "Preparando imagem…"
+              : submitting
+                ? "Enviando…"
+                : "Imprimir"}
+          </Button>
+        </div>
+      </aside>
+
+      {printer && effectiveOptions && (
+        <section
+          aria-labelledby="options-heading"
+          className="flex flex-col gap-4 lg:col-start-1 lg:row-start-2"
+        >
+          <h2 id="options-heading" className="text-lg font-semibold">
+            Opções
+          </h2>
+          <PrintOptionsForm
+            capabilities={printer.capabilities}
+            allowPageRanges={kind !== "image"}
+            value={effectiveOptions}
+            onChange={setOptions}
+            errors={errors}
+            disabled={submitting}
+          />
+        </section>
+      )}
+
+      {file && kind && effectiveOptions && (
+        <div className="lg:col-start-1 lg:row-start-3">
           <DocumentPreview
             key={fileKey}
             file={file}
@@ -218,62 +306,8 @@ export function NewPrintJob() {
             pageRanges={effectiveOptions.pageRanges}
             onPageCount={setPageCount}
           />
-        )}
-      </section>
-
-      <div className="flex flex-col gap-8 lg:rounded-xl lg:border lg:bg-card lg:p-6">
-        <PrinterPicker
-          printers={printers}
-          value={printerId}
-          onValueChange={choosePrinter}
-          error={errors.printerId}
-        />
-
-        {printer && effectiveOptions && (
-          <section
-            aria-labelledby="options-heading"
-            className="flex flex-col gap-4"
-          >
-            <h2 id="options-heading" className="text-lg font-semibold">
-              Opções
-            </h2>
-            <PrintOptionsForm
-              capabilities={printer.capabilities}
-              allowPageRanges={kind !== "image"}
-              value={effectiveOptions}
-              onChange={setOptions}
-              errors={errors}
-              disabled={submitting}
-            />
-          </section>
-        )}
-
-        {formError && (
-          <Alert variant="destructive">
-            <CircleAlert aria-hidden />
-            <AlertTitle>{formError}</AlertTitle>
-          </Alert>
-        )}
-
-        {progress !== null && (
-          <Progress value={Math.round(progress * 100)}>
-            <ProgressLabel>Enviando documento…</ProgressLabel>
-          </Progress>
-        )}
-
-        <Button
-          type="submit"
-          size="lg"
-          className="h-11 w-full"
-          disabled={submitting || printers.status !== "success"}
-        >
-          {converting
-            ? "Preparando imagem…"
-            : submitting
-              ? "Enviando…"
-              : "Imprimir"}
-        </Button>
-      </div>
+        </div>
+      )}
     </form>
   )
 }

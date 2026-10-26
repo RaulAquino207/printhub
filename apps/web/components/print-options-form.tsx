@@ -81,7 +81,8 @@ export function PrintOptionsForm({
     onChange({ ...value, [key]: v })
 
   return (
-    <FieldGroup className="gap-5">
+    // Two columns from sm: copies | color, paper | orientation, duplex | pages.
+    <FieldGroup className="grid gap-5 sm:grid-cols-2">
       <Field data-invalid={Boolean(errors.copies)}>
         <FieldLabel htmlFor="copies">Cópias</FieldLabel>
         <Input
