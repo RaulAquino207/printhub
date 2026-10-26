@@ -64,6 +64,7 @@ moon run :test :vet :typecheck :lint :format :build   # every check of every pro
 | `NEXT_PUBLIC_API_URL` (web) | `http://localhost:8080` | API base URL used by the browser; inlined at build time |
 | `NEXT_PUBLIC_MAX_UPLOAD_MB` (web) | `50` | Upload limit for client-side feedback; keep it equal to `PRINTHUB_MAX_UPLOAD_MB` |
 | `PRINTHUB_CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed to call the API with credentials; `*` is rejected ([ADR 0003](docs/adr/0003-subdomain-routing-and-cors.md)) |
+| `PRINTHUB_WEB_DEV_HOSTS` (web) | — | Comma-separated hostnames, without scheme or port, allowed to open the **dev** server besides `localhost` (e.g. `192.168.1.20`) |
 
 ### Printing through a real CUPS server (no printer needed)
 
