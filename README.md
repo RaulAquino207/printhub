@@ -59,6 +59,7 @@ moon run :test :vet :typecheck :lint :format :build   # every check of every pro
 | `PRINTHUB_PRINTING_PROVIDER` | `mock` | `mock` (simulated demo printers) or `cups` |
 | `PRINTHUB_CUPS_URL` | — | CUPS server for the `cups` provider, e.g. `http://localhost:6631` |
 | `PRINTHUB_CUPS_SIMULATED` | `false` | Marks every CUPS printer as simulated; set it for the development CUPS container |
+| `PRINTHUB_LOG_LEVEL` | `info` | `debug` also logs successful `GET` requests, which are mostly the web app polling |
 | `PRINTHUB_COOKIE_SECURE` | `false` | Set to `true` whenever the API is served over HTTPS, so the session cookie is HTTPS-only |
 | `NEXT_PUBLIC_API_URL` (web) | `http://localhost:8080` | API base URL used by the browser; inlined at build time |
 | `NEXT_PUBLIC_MAX_UPLOAD_MB` (web) | `50` | Upload limit for client-side feedback; keep it equal to `PRINTHUB_MAX_UPLOAD_MB` |

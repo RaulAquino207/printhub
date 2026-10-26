@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react"
 import { CircleAlert, CircleCheck, LoaderCircle } from "lucide-react"
 
+import { usePageVisible } from "@/hooks/use-page-visible"
 import { apiFetch } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 type Status = "checking" | "online" | "offline"
 
-const POLL_INTERVAL_MS = 10_000
+const POLL_INTERVAL_MS = 30_000
 
 const display = {
   checking: {
@@ -33,8 +34,11 @@ const display = {
 
 export function ApiStatus({ className }: { className?: string }) {
   const [status, setStatus] = useState<Status>("checking")
+  const visible = usePageVisible()
 
   useEffect(() => {
+    // Paused while the tab is hidden; checks again as soon as it is shown.
+    if (!visible) return
     const controller = new AbortController()
 
     async function check() {
@@ -54,7 +58,7 @@ export function ApiStatus({ className }: { className?: string }) {
       controller.abort()
       clearInterval(timer)
     }
-  }, [])
+  }, [visible])
 
   const { label, icon: Icon, className: tone, spin } = display[status]
 

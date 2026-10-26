@@ -7,6 +7,7 @@ import { JobStatusLabel } from "@/components/job-status-label"
 import { PrinterImage } from "@/components/printer-image"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { usePageVisible } from "@/hooks/use-page-visible"
 import {
   ApiError,
   cancelJob,
@@ -25,7 +26,7 @@ import {
 
 const POLL_INTERVAL_MS = 1000
 
-/** Follows a job until it finishes, polling the API every second. */
+/** Follows a job until it finishes, polling the API every second while the tab is visible. */
 export function JobStatusPanel({
   initialJob,
   onNewJob,
@@ -38,9 +39,10 @@ export function JobStatusPanel({
   const [actionError, setActionError] = useState<string>()
 
   const finished = isTerminal(job.status)
+  const visible = usePageVisible()
 
   useEffect(() => {
-    if (finished) return
+    if (finished || !visible) return
     const controller = new AbortController()
     const timer = setInterval(() => {
       fetchJob(job.id, controller.signal)
@@ -53,7 +55,7 @@ export function JobStatusPanel({
       controller.abort()
       clearInterval(timer)
     }
-  }, [job.id, finished])
+  }, [job.id, finished, visible])
 
   async function cancel() {
     setCancelling(true)

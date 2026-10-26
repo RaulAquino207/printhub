@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react"
 
+import { usePageVisible } from "@/hooks/use-page-visible"
 import { fetchJobs, type Job, type JobStatus } from "@/lib/jobs"
 
-const POLL_INTERVAL_MS = 2000
+/** Fast while jobs are moving, slow when the queue is idle. */
+const ACTIVE_POLL_MS = 2000
+const IDLE_POLL_MS = 15_000
 const RECENT_LIMIT = 20
 
 const activeStatuses: JobStatus[] = [
@@ -21,15 +24,20 @@ type State =
   | { status: "success"; active: Job[]; recent: Job[] }
 
 /**
- * Active jobs and the most recent finished ones, refreshed every two seconds.
+ * Active jobs and the most recent finished ones, refreshed every two seconds
+ * while some job is active and every fifteen otherwise; paused while the tab
+ * is hidden.
  * A failed refresh keeps showing the last data; the error state only appears
  * when nothing could be loaded yet.
  */
 export function usePrintQueue() {
   const [state, setState] = useState<State>({ status: "loading" })
   const [attempt, setAttempt] = useState(0)
+  const visible = usePageVisible()
+  const idle = state.status === "success" && state.active.length === 0
 
   useEffect(() => {
+    if (!visible) return
     const controller = new AbortController()
 
     async function load() {
@@ -51,12 +59,12 @@ export function usePrintQueue() {
     }
 
     load()
-    const timer = setInterval(load, POLL_INTERVAL_MS)
+    const timer = setInterval(load, idle ? IDLE_POLL_MS : ACTIVE_POLL_MS)
     return () => {
       controller.abort()
       clearInterval(timer)
     }
-  }, [attempt])
+  }, [attempt, visible, idle])
 
   /** Reloads now, e.g. after cancelling a job or to retry after an error. */
   const refresh = useCallback(() => setAttempt((n) => n + 1), [])

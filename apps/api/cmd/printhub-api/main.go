@@ -141,7 +141,13 @@ func main() {
 		return
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	// Info by default; PRINTHUB_LOG_LEVEL=debug also shows every polling request.
+	var level slog.Level
+	if err := level.UnmarshalText([]byte(envOr("PRINTHUB_LOG_LEVEL", "info"))); err != nil {
+		fmt.Fprintln(os.Stderr, "PRINTHUB_LOG_LEVEL:", err)
+		os.Exit(1)
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
 
 	if err := run(logger); err != nil {
 		logger.Error("api stopped with error", "error", err)

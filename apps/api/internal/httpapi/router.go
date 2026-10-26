@@ -93,7 +93,13 @@ func logRequests(logger *slog.Logger) func(http.Handler) http.Handler {
 
 			next.ServeHTTP(ww, r)
 
-			logger.Info("request",
+			// Successful reads are mostly the web app polling and would drown
+			// everything else, so they are logged at debug level.
+			level := slog.LevelInfo
+			if r.Method == http.MethodGet && ww.Status() < 400 {
+				level = slog.LevelDebug
+			}
+			logger.Log(r.Context(), level, "request",
 				"method", r.Method,
 				"path", r.URL.Path,
 				"status", ww.Status(),
