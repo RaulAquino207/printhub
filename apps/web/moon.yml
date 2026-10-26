@@ -29,6 +29,10 @@ tasks:
 
   build:
     command: "next build"
+    # next build regenerates .next/types, which tsc reads: running both at
+    # once made typecheck fail intermittently. Typecheck first, then build.
+    deps:
+      - "typecheck"
     inputs:
       - "@group(sources)"
       - "@group(configs)"
